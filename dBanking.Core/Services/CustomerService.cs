@@ -1,6 +1,8 @@
-﻿using dBanking.Core.Entities;
+﻿using AutoMapper;
+using dBanking.Core.Entities;
 using dBanking.Core.Repository_Contracts;
 using dBanking.Core.ServiceContracts;
+using MassTransit;
 
 namespace dBanking.Core.Services
 {
@@ -11,12 +13,14 @@ namespace dBanking.Core.Services
     {
         private readonly ICustomerRepository _customers;
         private readonly IPublishEndpoint _bus;
+        private readonly IMapper _mapper;
 
         // TODO: Inject IAuditRepository (when implemented), IIdempotencyStore (e.g., Redis) if desired
-        public CustomerService(ICustomerRepository customers, IPublishEndpoint bus)
+        public CustomerService(ICustomerRepository customers, IMapper mapper)
         {
             _customers = customers;
-            _bus = bus;
+           // _bus = bus;
+            _mapper = mapper;
         }
 
         public async Task<Customer> CreateAsync(Customer input, string? idempotencyKey = null, CancellationToken ct = default)
@@ -38,7 +42,7 @@ namespace dBanking.Core.Services
             await _customers.SaveChangesAsync(ct);
 
             // Publish domain event
-            await _bus.Publish(new CustomerCreated(input.CustomerId, input.Email, input.Phone), ct);
+            //await _bus.Publish(new CustomerCreated(input.CustomerId, input.Email, input.Phone), ct);
 
             // Optional: store idempotency result
             // if (!string.IsNullOrEmpty(idempotencyKey))
@@ -48,10 +52,14 @@ namespace dBanking.Core.Services
         }
 
         public Task<Customer?> GetAsync(Guid customerId, CancellationToken ct = default)
-            => _customers.GetByIdAsync(customerId, ct);
+        {
+            return _customers.GetByIdAsync(customerId, ct);
+        }
 
         public Task<Customer?> GetByEmailOrPhoneAsync(string? email, string? phone, CancellationToken ct = default)
-            => _customers.GetByEmailOrPhoneAsync(email, phone, ct);
+        {
+            return _customers.GetByEmailOrPhoneAsync(email, phone, ct);
+        }
 
         public async Task<Customer> UpdateAsync(Customer customer, CancellationToken ct = default)
         {
@@ -60,11 +68,14 @@ namespace dBanking.Core.Services
             if (existing is null)
                 throw new KeyNotFoundException($"Customer '{customer.CustomerId}' not found.");
 
-            // Example: only allow certain fields to change here; others via dedicated flows (contacts/address/etc.)
-            existing.FirstName = customer.FirstName;
-            existing.LastName = customer.LastName;
-            existing.Dob = customer.Dob;
-            existing.UpdatedAt = DateTime.UtcNow;
+            //// Example: only allow certain fields to change here; others via dedicated flows (contacts/address/etc.)
+            //existing.FirstName = customer.FirstName;
+            //existing.LastName = customer.LastName;
+            //existing.Dob = customer.Dob;
+            //existing.UpdatedAt = DateTime.UtcNow;
+
+            // Alternatively, use AutoMapper to map allowed fields
+            _mapper.Map(customer, existing);
 
             await _customers.UpdateAsync(existing, ct);
             await _customers.SaveChangesAsync(ct);

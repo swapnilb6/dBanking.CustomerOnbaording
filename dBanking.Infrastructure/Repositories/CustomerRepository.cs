@@ -1,14 +1,15 @@
 ﻿using dBanking.Core.Entities;
 using dBanking.Core.Repository_Contracts;
+using dBanking.Infrastructure.DbContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace dBanking.Infrastructure.Repositories
 {
     public sealed class CustomerRepository : ICustomerRepository
     {
-        private readonly CmsDbContext _db;
+        private readonly AppDBContext _db;
 
-        public CustomerRepository(CmsDbContext db)
+        public CustomerRepository(AppDBContext db)
         {
             _db = db;
         }
