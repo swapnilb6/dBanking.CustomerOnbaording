@@ -4,7 +4,7 @@ using dBanking.CustomerOnbaording.API.Middlewares;
 using dBanking.Infrastructure;
 using dBanking.Infrastructure.DbContext;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.SqlServer; // Add this using directive
+using Npgsql.EntityFrameworkCore.PostgreSQL; // Postgres EF Core provider
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -57,12 +57,16 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.AddProfile<CustomerMappingProfile>();
 });
 
-builder.Services.AddDbContext<AppDBContext>(options =>
-        options.UseSqlServer(builder.Configuration.GetConnectionString("SqlServerDB")));
-//options.UseNpgsql(builder.Configuration.GetConnectionString("SqlServerDB"));
+// SQL Server registration (kept as commented reference)
+// builder.Services.AddDbContext<AppDBContext>(options =>
+//     options.UseSqlServer(builder.Configuration.GetConnectionString("SqlServerDB")));
+
+// PostgreSQL registration using AppPostgresDbContext
+// Make sure you have a connection string named "PostgresDB" in configuration
+builder.Services.AddDbContext<AppPostgresDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgresAzureDb")));
 
 
-//builder.Services.AddSwaggerGen();
 
 builder.Services.AddSwaggerGen(c =>
 {

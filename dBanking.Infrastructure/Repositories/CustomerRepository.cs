@@ -7,9 +7,9 @@ namespace dBanking.Infrastructure.Repositories
 {
     public sealed class CustomerRepository : ICustomerRepository
     {
-        private readonly AppDBContext _db;
-
-        public CustomerRepository(AppDBContext db)
+        //private readonly AppDBContext _db;
+        private readonly AppPostgresDbContext _db;
+        public CustomerRepository(AppPostgresDbContext db)
         {
             _db = db;
         }
