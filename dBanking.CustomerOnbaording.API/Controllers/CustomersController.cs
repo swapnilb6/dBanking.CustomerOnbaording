@@ -24,7 +24,7 @@ namespace dBanking.CustomerOnbaording.API.Controllers
         /// Requires scope: customer:write
         /// </summary>
         [HttpPost]
-        [Authorize(Policy = "CustomerWrite")]
+        [Authorize(Policy = "App.write")]
         public async Task<ActionResult<CustomerResponseDto>> CreateCustomer(
             [FromBody] CustomerCreateRequestDto dto,
             CancellationToken ct)
@@ -65,7 +65,7 @@ namespace dBanking.CustomerOnbaording.API.Controllers
         /// Requires scope: customer:read
         /// </summary>
         [HttpGet("{customerId:guid}")]
-        [Authorize(Policy = "CustomerRead")]
+        [Authorize(Policy = "App.read")]
         public async Task<ActionResult<CustomerResponseDto>> GetCustomerById(Guid customerId, CancellationToken ct)
         {
             var entity = await _customers.GetAsync(customerId, ct);
@@ -80,7 +80,7 @@ namespace dBanking.CustomerOnbaording.API.Controllers
         /// Requires scope: customer:read
         /// </summary>
         [HttpGet("search")]
-        [Authorize(Policy = "CustomerRead")]
+        [Authorize(Policy = "App.read")]
         public async Task<ActionResult<CustomerResponseDto>> Search(
             [FromQuery] string? email,
             [FromQuery] string? phone,
