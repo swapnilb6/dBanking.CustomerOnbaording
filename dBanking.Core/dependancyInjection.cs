@@ -1,8 +1,10 @@
 ﻿
+using dBanking.Core.DTOS.Validators;
 using dBanking.Core.ServiceContracts;
 using dBanking.Core.Services;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.Extensions.DependencyInjection;
-
 namespace dBanking.Core
 {
     public static class dependancyInjection
@@ -14,6 +16,7 @@ namespace dBanking.Core
             // e.g., services.AddTransient<IMyService, MyService>();
             // Services
             services.AddTransient<ICustomerService, CustomerService>();
+            services.AddValidatorsFromAssemblyContaining<CustomerUpdateRequestDtoValidator>();
 
             return services;
         }

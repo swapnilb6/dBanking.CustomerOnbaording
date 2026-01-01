@@ -1,16 +1,16 @@
 using dBanking.Core;
+using dBanking.Core.DTOS.Validators;
 using dBanking.Core.Mappers;
 using dBanking.CustomerOnbaording.API.Middlewares;
 using dBanking.Infrastructure;
 using dBanking.Infrastructure.DbContext;
-using Microsoft.EntityFrameworkCore;
-using Npgsql.EntityFrameworkCore.PostgreSQL; // Postgres EF Core provider
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.Net.Http.Headers;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.OpenApi.Models;
+using FluentValidation.AspNetCore; // Add this using directive
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,8 +47,6 @@ builder.Services.AddAuthorization(options =>
 });
 
 
-
-
 // Add controllers
 builder.Services.AddControllers();
 
@@ -56,6 +54,8 @@ builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddProfile<CustomerMappingProfile>();
 });
+
+builder.Services.AddFluentValidationAutoValidation();
 
 // SQL Server registration (kept as commented reference)
 // builder.Services.AddDbContext<AppDBContext>(options =>
