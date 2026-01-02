@@ -1,15 +1,18 @@
-using dBanking.Core;
+﻿using dBanking.Core;
 using dBanking.Core.DTOS.Validators;
 using dBanking.Core.Mappers;
+using dBanking.Core.Messages;
 using dBanking.CustomerOnbaording.API.Middlewares;
 using dBanking.Infrastructure;
 using dBanking.Infrastructure.DbContext;
+using FluentValidation.AspNetCore; // Add this using directive
+using MassTransit;
+using MassTransit.RabbitMqTransport.Topology;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
-using FluentValidation.AspNetCore; // Add this using directive
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,6 +47,100 @@ builder.Services.AddAuthorization(options =>
             )
         )
     );
+});
+
+
+// MassTransit + RabbitMQ
+builder.Services.AddMassTransit(x =>
+{
+    // No EF outbox configured here to avoid adding EF integration package.
+    // If you want the EF outbox, add MassTransit.EntityFrameworkCore with matching EF Core versions.
+
+    // No consumers in this service (producer-only); can add in other services
+    // x.AddConsumer<SomeConsumer>();
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        var mq = builder.Configuration.GetSection("Messaging:RabbitMq");
+
+        cfg.Host(
+            mq["Host"],
+            mq["VirtualHost"],
+            h =>
+            {
+                h.Username(mq["Username"]);
+                h.Password(mq["Password"]);
+                if (bool.TryParse(mq["UseTls"], out var useTls) && useTls)
+                    h.UseSsl(s => { s.Protocol = System.Security.Authentication.SslProtocols.Tls12; });
+            });
+        cfg.Message<dBanking.Core.Messages.CustomerCreated>(mt =>
+        {
+            mt.SetEntityName("event.customer.created");
+        });
+        cfg.Message<dBanking.Core.Messages.KycStatusChanged>(mt =>
+        {
+            mt.SetEntityName("event.kyc.status");
+        });
+        cfg.Publish<dBanking.Core.Messages.CustomerCreated>(p =>
+        {
+            p.ExchangeType = "topic";
+            p.Durable = true;
+        });
+
+        cfg.Publish<dBanking.Core.Messages.KycStatusChanged>(p =>
+        {
+            p.ExchangeType = "topic";
+            p.Durable = true;
+        });
+        // Recommended topology for events (publish/subscribe)
+
+
+        // Explicit queue bound to topic exchanges with routing key patterns
+        cfg.ReceiveEndpoint("customer-events-queue", e =>
+        {
+            e.PrefetchCount = 16;
+            e.ConfigureConsumeTopology = false; // we will bind exchanges manually
+
+            // Bind to CustomerCreated topic exchange
+            e.Bind("event.customer.created", x =>
+            {
+                x.ExchangeType = "topic";
+                // Match routing keys like:
+                //   customer.created.pune
+                //   customer.created.india.mumbai
+                //   customer.created.<any>
+                x.RoutingKey = "customer.created.#";
+                x.Durable = true;
+            });
+
+            // Bind to KycStatusChanged topic exchange
+            e.Bind("event.kyc.status", x =>
+            {
+                x.ExchangeType = "topic";
+                x.RoutingKey = "kyc.status.#";
+                x.Durable = true;
+            });
+
+            // Wire consumers to this endpoint
+           // e.ConfigureConsumer<CustomerCreatedConsumer>(context);
+           // e.ConfigureConsumer<KycStatusChangedConsumer>(context);
+        });
+
+
+
+
+        cfg.ConfigureEndpoints(context);
+
+
+        // NOTE: removed explicit cfg.Publish<T> calls for message types that are not defined in the solution
+        // to avoid compilation errors. Add per-message publish configuration when message contracts exist.
+    });
+});
+
+builder.Services.AddOptions<MassTransitHostOptions>().Configure(options =>
+{
+    options.WaitUntilStarted = true;
+    options.StartTimeout = TimeSpan.FromSeconds(30);
 });
 
 

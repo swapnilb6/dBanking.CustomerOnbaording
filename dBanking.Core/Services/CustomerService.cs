@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using dBanking.Core.Entities;
+using dBanking.Core.Messages;
 using dBanking.Core.Repository_Contracts;
 using dBanking.Core.ServiceContracts;
 using MassTransit;
@@ -12,14 +13,14 @@ namespace dBanking.Core.Services
     public sealed class CustomerService : ICustomerService
     {
         private readonly ICustomerRepository _customers;
-        private readonly IPublishEndpoint _bus;
+        private readonly IPublishEndpoint _publish;
         private readonly IMapper _mapper;
 
         // TODO: Inject IAuditRepository (when implemented), IIdempotencyStore (e.g., Redis) if desired
-        public CustomerService(ICustomerRepository customers, IMapper mapper)
+        public CustomerService(ICustomerRepository customers, IMapper mapper, IPublishEndpoint publishEndpoint)
         {
             _customers = customers;
-           // _bus = bus;
+            _publish = publishEndpoint;
             _mapper = mapper;
         }
 
@@ -42,7 +43,18 @@ namespace dBanking.Core.Services
             await _customers.SaveChangesAsync(ct);
 
             // Publish domain event
-            //await _bus.Publish(new CustomerCreated(input.CustomerId, input.Email, input.Phone), ct);
+
+            await _publish.Publish<dBanking.Core.Messages.CustomerCreated>(new
+            {
+                CustomerId = input.CustomerId,
+                input.FirstName,
+                input.LastName,
+                input.Email,
+                CreatedAtUtc = input.CreatedAt,
+                SourceSystem = "CustomerApi",
+                CorrelationId = input.CustomerId
+            }, ct);
+
 
             // Optional: store idempotency result
             // if (!string.IsNullOrEmpty(idempotencyKey))
@@ -81,8 +93,11 @@ namespace dBanking.Core.Services
             await _customers.SaveChangesAsync(ct);
 
             // Optional: publish an update event (define it when needed)
-            // await _bus.Publish(new CustomerUpdated(existing.CustomerId, existing.FirstName, existing.LastName), ct);
-
+            await _publish.Publish <dBanking.Core.Messages.CustomerUpdated>(new
+            {   existing.CustomerId, 
+                existing.FirstName, 
+                existing.LastName 
+            });
             return existing;
         }
     }

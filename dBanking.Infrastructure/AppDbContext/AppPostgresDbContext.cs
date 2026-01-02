@@ -1,5 +1,6 @@
 ﻿using dBanking.Core.Entities;
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
 
 namespace dBanking.Infrastructure.DbContext
 {
@@ -86,6 +87,13 @@ namespace dBanking.Infrastructure.DbContext
 
                 e.HasIndex(x => new { x.EntityType, x.TargetEntityId, x.Timestamp });
             });
+
+
+
+            //// MassTransit outbox schema - requires MassTransit.EntityFrameworkCore package
+            b.AddInboxStateEntity();
+            b.AddOutboxMessageEntity();
+            b.AddOutboxStateEntity();
 
             // Seed mock data for development
             Seed(b);
