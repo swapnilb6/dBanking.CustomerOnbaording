@@ -15,12 +15,13 @@ namespace dBanking.Core.Services
         private readonly ICustomerRepository _customers;
         private readonly IPublishEndpoint _publish;
         private readonly IMapper _mapper;
-
+        private readonly IKycCaseService _kycCases;
         // TODO: Inject IAuditRepository (when implemented), IIdempotencyStore (e.g., Redis) if desired
-        public CustomerService(ICustomerRepository customers, IMapper mapper, IPublishEndpoint publishEndpoint)
+        public CustomerService(ICustomerRepository customers, IMapper mapper, IPublishEndpoint publishEndpoint, IKycCaseService kycCases)
         {
             _customers = customers;
             _publish = publishEndpoint;
+            _kycCases = kycCases;
             _mapper = mapper;
         }
 
@@ -60,8 +61,22 @@ namespace dBanking.Core.Services
             // if (!string.IsNullOrEmpty(idempotencyKey))
             //     await _idempotency.StoreResultAsync(idempotencyKey, input, ct);
 
+
+
+            // Auto-start KYC (idempotent; returns existing PENDING if any)
+            await _kycCases.StartForCustomerAsync(
+                new dBanking.Core.DTOS.KycCaseCreateRequestDto(
+                    CustomerId: input.CustomerId,
+                    EvidenceRefs: new List<string>(),            // TODO: supply actual refs if available
+                    ConsentText: "I consent to eKYC verification for account onboarding.",
+                    AcceptedAt: DateTime.UtcNow,
+                    IdempotencyKey: idempotencyKey
+                ),
+                ct);
+
             return input;
         }
+
 
         public Task<Customer?> GetAsync(Guid customerId, CancellationToken ct = default)
         {

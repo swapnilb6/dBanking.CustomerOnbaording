@@ -12,7 +12,7 @@ namespace dBanking.Infrastructure;
         // Register infrastructure services here
         // e.g., services.AddTransient<IMyService, MyService>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
-
+        services.AddScoped<IKycCaseRepository, KycCaseRepository>();
         return services;
     }
 }

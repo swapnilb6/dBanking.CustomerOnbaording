@@ -17,7 +17,7 @@ namespace dBanking.Core
             // Services
             services.AddTransient<ICustomerService, CustomerService>();
             services.AddValidatorsFromAssemblyContaining<CustomerUpdateRequestDtoValidator>();
-
+            services.AddTransient<IKycCaseService, KycCaseService>();
             return services;
         }
     }
