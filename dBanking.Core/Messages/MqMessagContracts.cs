@@ -41,12 +41,20 @@ namespace dBanking.Core.Messages
 
     public interface KycStatusChanged
     {
+        Guid KycCaseId { get; }
         Guid CustomerId { get; }
         string KycStatus { get; }     // e.g., "Pending", "InProgress", "Approved", "Rejected"
         string? Reason { get; }       // rejection reason if any
         DateTime StatusChangedAtUtc { get; }
         string SourceSystem { get; }
         Guid CorrelationId { get; }
+  
+        dBanking.Core.Entities.KycStatus OldStatus { get; }
+        dBanking.Core.Entities.KycStatus NewStatus { get; }
+        DateTime? CheckedAtUtc { get; }
+        string? ProviderRef { get; }
+
+
     }
 
 }

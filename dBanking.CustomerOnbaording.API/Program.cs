@@ -2,6 +2,9 @@
 using dBanking.Core.DTOS.Validators;
 using dBanking.Core.Mappers;
 using dBanking.Core.Messages;
+using dBanking.Core.ServiceContracts;
+using dBanking.Core.Services;
+using dBanking.CustomerOnbaording.API.Consumers;
 using dBanking.CustomerOnbaording.API.Middlewares;
 using dBanking.Infrastructure;
 using dBanking.Infrastructure.DbContext;
@@ -20,6 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddInfrastructureServices();
 dBanking.Core.dependancyInjection.AddCoreServices(builder.Services);
+builder.Services.AddScoped<IKycCaseService, KycCaseService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
@@ -50,37 +54,39 @@ builder.Services.AddAuthorization(options =>
 });
 
 
+
 // MassTransit + RabbitMQ
 builder.Services.AddMassTransit(x =>
 {
-    // No EF outbox configured here to avoid adding EF integration package.
-    // If you want the EF outbox, add MassTransit.EntityFrameworkCore with matching EF Core versions.
-
-    // No consumers in this service (producer-only); can add in other services
-    // x.AddConsumer<SomeConsumer>();
+    x.AddConsumer<KycStatusChangedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
         var mq = builder.Configuration.GetSection("Messaging:RabbitMq");
 
-        cfg.Host(
-            mq["Host"],
-            mq["VirtualHost"],
-            h =>
+        cfg.Host(mq["Host"], mq["VirtualHost"], h =>
+        {
+            h.Username(mq["Username"]);
+            h.Password(mq["Password"]);
+
+            if (bool.TryParse(mq["UseTls"], out var useTls) && useTls)
             {
-                h.Username(mq["Username"]);
-                h.Password(mq["Password"]);
-                if (bool.TryParse(mq["UseTls"], out var useTls) && useTls)
-                    h.UseSsl(s => { s.Protocol = System.Security.Authentication.SslProtocols.Tls12; });
-            });
+                h.UseSsl(s => { s.Protocol = System.Security.Authentication.SslProtocols.Tls12; });
+            }
+        });
+
+        // Set the exchange names (entity names)
         cfg.Message<dBanking.Core.Messages.CustomerCreated>(mt =>
         {
-            mt.SetEntityName("event.customer.created");
+            mt.SetEntityName("event.customer.created");   // topic exchange
         });
+
         cfg.Message<dBanking.Core.Messages.KycStatusChanged>(mt =>
         {
-            mt.SetEntityName("event.kyc.status");
+            mt.SetEntityName("event.kyc.status");         // topic exchange
         });
+
+        // Publish topology
         cfg.Publish<dBanking.Core.Messages.CustomerCreated>(p =>
         {
             p.ExchangeType = "topic";
@@ -92,50 +98,59 @@ builder.Services.AddMassTransit(x =>
             p.ExchangeType = "topic";
             p.Durable = true;
         });
-        // Recommended topology for events (publish/subscribe)
 
-
-        // Explicit queue bound to topic exchanges with routing key patterns
-        cfg.ReceiveEndpoint("customer-events-queue", e =>
+        // Explicit consumer endpoint (distinct queue name)
+        cfg.ReceiveEndpoint("kyc-status-changed-processor", e =>
         {
+            // Let MassTransit bind the consumer to the message exchange using consume topology
+            // (default is true; no need to set e.ConfigureConsumeTopology)
             e.PrefetchCount = 16;
-            e.ConfigureConsumeTopology = false; // we will bind exchanges manually
 
-            // Bind to CustomerCreated topic exchange
-            e.Bind("event.customer.created", x =>
-            {
-                x.ExchangeType = "topic";
-                // Match routing keys like:
-                //   customer.created.pune
-                //   customer.created.india.mumbai
-                //   customer.created.<any>
-                x.RoutingKey = "customer.created.#";
-                x.Durable = true;
-            });
+            e.ConfigureConsumer<KycStatusChangedConsumer>(context);
 
-            // Bind to KycStatusChanged topic exchange
-            e.Bind("event.kyc.status", x =>
-            {
-                x.ExchangeType = "topic";
-                x.RoutingKey = "kyc.status.#";
-                x.Durable = true;
-            });
+            e.UseMessageRetry(r => r.Exponential(
+                retryLimit: 5,
+                minInterval: TimeSpan.FromSeconds(1),
+                maxInterval: TimeSpan.FromSeconds(30),
+                intervalDelta: TimeSpan.FromSeconds(5)));
 
-            // Wire consumers to this endpoint
-           // e.ConfigureConsumer<CustomerCreatedConsumer>(context);
-           // e.ConfigureConsumer<KycStatusChangedConsumer>(context);
+            // Optional throughput cap:
+            // e.UseConcurrencyLimit(8);
         });
 
+        // REMOVE this 'customer-events-queue' until you attach consumers to it.
+        // Otherwise it's a dead queue accumulating messages.
+        // If/when you need a fan-in queue for multiple topics with manual routing keys:
+        //
+        // cfg.ReceiveEndpoint("customer-events-queue", e =>
+        // {
+        //     e.PrefetchCount = 16;
+        //     e.ConfigureConsumeTopology = false; // manual binding
+        //
+        //     e.Bind("event.customer.created", x =>
+        //     {
+        //         x.ExchangeType = "topic";
+        //         x.RoutingKey = "customer.created.#";
+        //         x.Durable = true;
+        //     });
+        //
+        //     e.Bind("event.kyc.status", x =>
+        //     {
+        //         x.ExchangeType = "topic";
+        //         x.RoutingKey = "kyc.status.#";
+        //         x.Durable = true;
+        //     });
+        //
+        //     // Then wire consumers:
+        //     // e.ConfigureConsumer<CustomerCreatedConsumer>(context);
+        //     // e.ConfigureConsumer<KycStatusChangedConsumer>(context);
+        // });
 
-
-
-        cfg.ConfigureEndpoints(context);
-
-
-        // NOTE: removed explicit cfg.Publish<T> calls for message types that are not defined in the solution
-        // to avoid compilation errors. Add per-message publish configuration when message contracts exist.
+        // IMPORTANT: Do NOT call ConfigureEndpoints when using explicit endpoint declarations
+        // cfg.ConfigureEndpoints(context);
     });
 });
+
 
 builder.Services.AddOptions<MassTransitHostOptions>().Configure(options =>
 {

@@ -15,9 +15,9 @@ namespace dBanking.Core
             // Register core services here
             // e.g., services.AddTransient<IMyService, MyService>();
             // Services
-            services.AddTransient<ICustomerService, CustomerService>();
+            services.AddScoped<ICustomerService, CustomerService>();
             services.AddValidatorsFromAssemblyContaining<CustomerUpdateRequestDtoValidator>();
-            services.AddTransient<IKycCaseService, KycCaseService>();
+            services.AddScoped<IKycCaseService, KycCaseService>();
             return services;
         }
     }
