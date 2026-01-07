@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -7,6 +7,8 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <PreserveCompilationContext>true</PreserveCompilationContext>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,7 +20,6 @@
 	  <PackageReference Include="FluentAssertions" Version="6.*" />
 	  <PackageReference Include="Moq" Version="4.*" />
 	  <PackageReference Include="MassTransit" Version="8.*" />
-	  <PackageReference Include="MassTransit.Testing" Version="8.*" />
 	  <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.*" />
 	  <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.*" />
   </ItemGroup>
@@ -28,15 +29,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
-    <Folder Include="TestUtils\" />
-    <Folder Include="Services\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\dBanking.Core\dBanking.Core.csproj" />
     <ProjectReference Include="..\dBanking.CustomerOnbaording.API\dBanking.CustomerOnbaording.API.csproj" />
     <ProjectReference Include="..\dBanking.Infrastructure\dBanking.Infrastructure.csproj" />
   </ItemGroup>
+
+  <Target Name="EnsureTesthostDepsJson" AfterTargets="Build">
+    <!-- If the project's deps.json exists, copy it to testhost.deps.json in the same output folder to satisfy testhost lookup. -->
+    <PropertyGroup>
+      <DepsJson>$(TargetDir)$(AssemblyName).deps.json</DepsJson>
+      <TestHostDepsJson>$(TargetDir)testhost.deps.json</TestHostDepsJson>
+    </PropertyGroup>
+    <Copy SourceFiles="$(DepsJson)" DestinationFiles="$(TestHostDepsJson)" SkipUnchangedFiles="true" Condition="Exists('$(DepsJson)')" />
+  </Target>
 
 </Project>
