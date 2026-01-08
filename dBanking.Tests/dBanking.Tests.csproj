@@ -34,13 +34,4 @@
     <ProjectReference Include="..\dBanking.Infrastructure\dBanking.Infrastructure.csproj" />
   </ItemGroup>
 
-  <Target Name="EnsureTesthostDepsJson" AfterTargets="Build">
-    <!-- If the project's deps.json exists, copy it to testhost.deps.json in the same output folder to satisfy testhost lookup. -->
-    <PropertyGroup>
-      <DepsJson>$(TargetDir)$(AssemblyName).deps.json</DepsJson>
-      <TestHostDepsJson>$(TargetDir)testhost.deps.json</TestHostDepsJson>
-    </PropertyGroup>
-    <Copy SourceFiles="$(DepsJson)" DestinationFiles="$(TestHostDepsJson)" SkipUnchangedFiles="true" Condition="Exists('$(DepsJson)')" />
-  </Target>
-
 </Project>
