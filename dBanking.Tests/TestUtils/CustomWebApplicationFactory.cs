@@ -1,5 +1,6 @@
 ﻿
 using dBanking.Infrastructure.DbContext;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -17,6 +18,20 @@ namespace dBanking.Tests.TestUtils
         {
             builder.ConfigureServices(services =>
             {
+
+                // Replace Authentication with TestAuthHandler
+                services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                    options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+                    options.DefaultScheme = TestAuthHandler.SchemeName;
+                })
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
+
+                // If you need to override Authorization policies (optional), ensure they remain the same as production
+
+
+
                 // Replace AppPostgresDbContext with SQLite In-Memory
                 var descriptor = services.SingleOrDefault(
                     d => d.ServiceType == typeof(DbContextOptions<AppPostgresDbContext>));
