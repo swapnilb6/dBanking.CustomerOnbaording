@@ -7,6 +7,8 @@ using dBanking.Core.Repository_Contracts;
 using dBanking.Core.ServiceContracts;
 using FluentValidation;
 using MassTransit;
+using System.Diagnostics.Metrics;
+using System.Security.Principal;
 using System.Text.Json;
 
 namespace dBanking.Core.Services
@@ -18,16 +20,22 @@ namespace dBanking.Core.Services
         private readonly IPublishEndpoint _publish;
         private readonly IMapper _mapper;
 
+        private readonly IAuditService _audit;
+        private readonly ICorrelationAccessor _corr;
+
         public KycCaseService(
             IKycCaseRepository kycCases,
             ICustomerRepository customers,
             IMapper mapper,
-            IPublishEndpoint publish)
+            IPublishEndpoint publish,
+            IAuditService audit, ICorrelationAccessor corr)
         {
             _kycCases = kycCases;
             _customers = customers;
             _mapper = mapper;
             _publish = publish;
+            _audit = audit;
+            _corr = corr;
         }
 
         public async Task<KycCase> StartForCustomerAsync(KycCaseCreateRequestDto dto, CancellationToken ct)
@@ -47,8 +55,24 @@ namespace dBanking.Core.Services
             await _kycCases.AddAsync(entity, ct);
             await _kycCases.SaveChangesAsync(ct);
 
+
+
             // (Optional) Audit: create KYC case
             // await _audit.RecordAsync(...)
+
+            // Audit: KycStarted (with consent/evidence refs)
+            await _audit.RecordAsync(new AuditEntryDto(
+                EntityType: "KycCase",
+                Action: "KycStarted",
+                TargetEntityId: entity.KycCaseId,
+                RelatedEntityId: customer.CustomerId,
+                Actor: "KycCaseService",
+                CorrelationId: _corr.Get(),
+                BeforeSnapshot: null,
+                AfterSnapshot: new { entity.KycCaseId, entity.CustomerId, entity.Status, entity.ProviderRef, EvidenceRefs = dto.EvidenceRefs, entity.ConsentText, entity.AcceptedAt },
+                Source: "API"
+            ), ct);
+
 
             return entity;
         }
@@ -89,6 +113,11 @@ namespace dBanking.Core.Services
                 caseEntity.CheckedAt = dto.CheckedAt ?? DateTime.UtcNow;
             }
 
+            // Map DTO -> entity
+            var entity = _mapper.Map<KycCase>(dto);
+
+            var before = new { entity.Status, entity.ProviderRef, entity.CheckedAt };
+
             await _kycCases.UpdateAsync(caseEntity, ct);
             await _kycCases.SaveChangesAsync(ct);
 
@@ -114,6 +143,22 @@ namespace dBanking.Core.Services
                 ProviderRef = caseEntity.ProviderRef,
                 CheckedAtUtc = caseEntity.CheckedAt
             }, ct);
+
+            var after = new { entity.Status, entity.ProviderRef, entity.CheckedAt };
+
+            // Audit: KycStatusChanged (before/after JSON)
+            await _audit.RecordAsync(new AuditEntryDto(
+                EntityType: "KycCase",
+                Action: "KycStatusChanged",
+                TargetEntityId: entity.KycCaseId,
+                RelatedEntityId: entity.CustomerId,
+                Actor: "KycCaseService",
+                CorrelationId: _corr.Get(),
+                BeforeSnapshot: before,
+                AfterSnapshot: after,
+                Source: "API"
+            ), ct);
+
 
             // (Optional) Audit: status change
             // await _audit.RecordAsync(...)

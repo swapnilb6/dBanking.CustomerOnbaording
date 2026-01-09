@@ -7,14 +7,16 @@ using System.Threading.Tasks;
 
 namespace dBanking.Core.DTOS
 {
-    public sealed record AuditRecordDto(
-        Guid AuditId,
-        [property: Required] AuditEntityTypeDto EntityType,
-        [property: Required] AuditActionDto Action,
-        [property: Required, StringLength(256)] string Actor,
-        [property: Required] DateTime Timestamp,
-        string? BeforeJson,
-        [property: Required] string AfterJson
+    public sealed record AuditEntryDto(
+        string EntityType,
+        string Action,
+        Guid? TargetEntityId,
+        Guid? RelatedEntityId,
+        string Actor,
+        string? CorrelationId,
+        object? BeforeSnapshot,
+        object? AfterSnapshot,
+        string? Source = null,
+        string? Environment = null
     );
-
 }

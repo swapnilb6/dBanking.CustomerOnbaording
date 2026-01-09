@@ -1,6 +1,8 @@
 ﻿using dBanking.Core.Entities;
-using Microsoft.EntityFrameworkCore;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.Reflection.Emit;
 
 namespace dBanking.Infrastructure.DbContext
 {
@@ -71,9 +73,12 @@ namespace dBanking.Infrastructure.DbContext
             // -----------------------------
             // AuditRecord (append-only semantics in app layer)
             // -----------------------------
+
+            b.ApplyConfiguration(new AuditRecordEntityTypeConfiguration());
+
             b.Entity<AuditRecord>(e =>
             {
-                e.HasKey(x => x.AuditId);
+                e.HasKey(x => x.AuditRecordId);
 
                 e.Property(x => x.EntityType).IsRequired();
                 e.Property(x => x.TargetEntityId).IsRequired();
@@ -185,10 +190,10 @@ namespace dBanking.Infrastructure.DbContext
             b.Entity<AuditRecord>().HasData(
                 new AuditRecord
                 {
-                    AuditId = audit1Id,
-                    EntityType = AuditEntityType.Customer,
+                    AuditRecordId = audit1Id,
+                    EntityType = "Customer",
                     TargetEntityId = cust1Id,
-                    Action = AuditAction.CREATE,
+                    Action = "CREATE",
                     Actor = "sub:rahul@aad",
                     Timestamp = new DateTime(2025, 12, 1, 10, 36, 30, DateTimeKind.Utc),
                     BeforeJson = null,
@@ -197,10 +202,10 @@ namespace dBanking.Infrastructure.DbContext
                 },
                 new AuditRecord
                 {
-                    AuditId = audit2Id,
-                    EntityType = AuditEntityType.KycCase,
+                    AuditRecordId = audit2Id,
+                    EntityType = "KycCase",
                     TargetEntityId = kyc1Id,
-                    Action = AuditAction.CREATE,
+                    Action = "CREATE",
                     Actor = "sub:rahul@aad",
                     Timestamp = new DateTime(2025, 12, 1, 10, 36, 50, DateTimeKind.Utc),
                     BeforeJson = null,
@@ -209,10 +214,10 @@ namespace dBanking.Infrastructure.DbContext
                 },
                 new AuditRecord
                 {
-                    AuditId = audit3Id,
-                    EntityType = AuditEntityType.Customer,
+                    AuditRecordId = audit3Id,
+                    EntityType = "Customer",
                     TargetEntityId = cust3Id,
-                    Action = AuditAction.UPDATE,
+                    Action = "UPDATE",
                     Actor = "system:closure",
                     Timestamp = new DateTime(2025, 12, 5, 14, 00, 20, DateTimeKind.Utc),
                     BeforeJson = "{\"customerId\":\"99998888-7777-6666-5555-444433332222\",\"status\":\"VERIFIED\"}",

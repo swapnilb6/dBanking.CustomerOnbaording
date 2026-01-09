@@ -26,6 +26,10 @@ namespace dBanking.Tests.Services
         private readonly Mock<IKycCaseRepository> _kycRepo = new(MockBehavior.Strict);
         private readonly Mock<ICustomerRepository> _custRepo = new(MockBehavior.Strict);
 
+        private readonly IAuditService _audit;
+        private readonly ICorrelationAccessor _corr;
+
+
         public KycCaseServiceTests()
         {
             var services = new ServiceCollection();
@@ -88,7 +92,7 @@ namespace dBanking.Tests.Services
             var mapper = _provider.GetRequiredService<IMapper>();
             var publishEndpoint = _provider.GetRequiredService<IPublishEndpoint>();
 
-            IKycCaseService service = new KycCaseService(_kycRepo.Object, _custRepo.Object, mapper, publishEndpoint);
+            IKycCaseService service = new KycCaseService(_kycRepo.Object, _custRepo.Object, mapper, publishEndpoint,_audit,_corr);
 
             var dto = new KycStatusUpdateRequestDto(
                 CustomerId: custId,

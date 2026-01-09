@@ -2,12 +2,14 @@
 using dBanking.Core.DTOS.Validators;
 using dBanking.Core.Mappers;
 using dBanking.Core.Messages;
+using dBanking.Core.Repository_Contracts;
 using dBanking.Core.ServiceContracts;
 using dBanking.Core.Services;
 using dBanking.CustomerOnbaording.API.Consumers;
 using dBanking.CustomerOnbaording.API.Middlewares;
 using dBanking.Infrastructure;
 using dBanking.Infrastructure.DbContext;
+using dBanking.Infrastructure.Repositories;
 using FluentValidation.AspNetCore; // Add this using directive
 using MassTransit;
 using MassTransit.RabbitMqTransport.Topology;
@@ -24,6 +26,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructureServices();
 dBanking.Core.dependancyInjection.AddCoreServices(builder.Services);
 builder.Services.AddScoped<IKycCaseService, KycCaseService>();
+
+//Auditing services registration
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICorrelationAccessor, HttpCorrelationAccessor>();
+
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
@@ -232,6 +242,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandellingMW();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+
 
 app.UseRouting();
 app.UseAuthentication();

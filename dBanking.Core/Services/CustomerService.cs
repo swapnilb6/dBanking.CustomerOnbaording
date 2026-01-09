@@ -4,6 +4,8 @@ using dBanking.Core.Messages;
 using dBanking.Core.Repository_Contracts;
 using dBanking.Core.ServiceContracts;
 using MassTransit;
+using System.Diagnostics.Metrics;
+using System.Security.Principal;
 
 namespace dBanking.Core.Services
 {
@@ -17,12 +19,23 @@ namespace dBanking.Core.Services
         private readonly IMapper _mapper;
         private readonly IKycCaseService _kycCases;
         // TODO: Inject IAuditRepository (when implemented), IIdempotencyStore (e.g., Redis) if desired
-        public CustomerService(ICustomerRepository customers, IMapper mapper, IPublishEndpoint publishEndpoint, IKycCaseService kycCases)
+
+
+        private readonly IAuditService _audit;
+        private readonly ICorrelationAccessor _corr;
+       
+        public CustomerService(ICustomerRepository customers, IMapper mapper, IPublishEndpoint publishEndpoint
+            , IKycCaseService kycCases,
+            IAuditService audit,
+            ICorrelationAccessor corr)
         {
             _customers = customers;
             _publish = publishEndpoint;
             _kycCases = kycCases;
             _mapper = mapper;
+            _audit = audit;
+            _corr = corr;
+
         }
 
         public async Task<Customer> CreateAsync(Customer input, string? idempotencyKey = null, CancellationToken ct = default)
@@ -55,6 +68,21 @@ namespace dBanking.Core.Services
                 SourceSystem = "CustomerApi",
                 CorrelationId = input.CustomerId
             }, ct);
+
+
+
+            // Audit: CustomerCreated
+            await _audit.RecordAsync(new DTOS.AuditEntryDto(
+                EntityType: "Customer",
+                Action: "CustomerCreated",
+                TargetEntityId: input.CustomerId,
+                RelatedEntityId: null,
+                Actor: "CustomerService",
+                CorrelationId: _corr.Get(),
+                BeforeSnapshot: null,
+                AfterSnapshot: new { input.CustomerId, input.FirstName, input.LastName, input.Email, input.Phone, input.Status },
+                Source: "API"
+            ), ct);
 
 
             // Optional: store idempotency result
@@ -95,6 +123,10 @@ namespace dBanking.Core.Services
             if (existing is null)
                 throw new KeyNotFoundException($"Customer '{customer.CustomerId}' not found.");
 
+
+
+            var before = new { customer.Email, customer.Phone, customer.Status };
+
             //// Example: only allow certain fields to change here; others via dedicated flows (contacts/address/etc.)
             //existing.FirstName = customer.FirstName;
             //existing.LastName = customer.LastName;
@@ -113,6 +145,21 @@ namespace dBanking.Core.Services
                 existing.FirstName, 
                 existing.LastName 
             });
+
+            var after = new { customer.Email, customer.Phone, customer.Status };
+
+            await _audit.RecordAsync(new DTOS.AuditEntryDto(
+                        EntityType: "Customer",
+                        Action: "CustomerUpdated",
+                        TargetEntityId: customer.CustomerId,
+                        RelatedEntityId: null,
+                        Actor: "CustomerService",
+                        CorrelationId: _corr.Get(),
+                        BeforeSnapshot: before,
+                        AfterSnapshot: after,
+                        Source: "API"
+                    ), ct);
+
             return existing;
         }
     }

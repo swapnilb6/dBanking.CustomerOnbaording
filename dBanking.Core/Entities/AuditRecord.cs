@@ -1,56 +1,25 @@
 ﻿using System.ComponentModel.DataAnnotations;
 namespace dBanking.Core.Entities
 {
-
-    
-    /// <summary>
-    /// Immutable audit log (append-only): records who did what, when,
-    /// and the before/after JSON snapshots.
-    /// </summary>
-    public class AuditRecord
+    public sealed class AuditRecord
     {
-        [Key]
-        public Guid AuditId { get; set; } = Guid.NewGuid();
+        public Guid AuditRecordId { get; init; } = Guid.NewGuid();
 
-        [Required]
-        public AuditEntityType EntityType { get; set; }
+        public string EntityType { get; init; } = default!;           // e.g., "Customer", "KycCase"
+        public string Action { get; init; } = default!;                // e.g., "CustomerCreated", "KycStarted"
 
-        /// <summary>
-        /// The primary key of the target entity (e.g., CustomerId or KycCaseId).
-        /// </summary>
-        [Required]
-        public Guid TargetEntityId { get; set; }
+        public Guid? TargetEntityId { get; init; }                     // e.g., customerId or kycCaseId
+        public Guid? RelatedEntityId { get; init; }                    // optional (e.g., kycCaseId when action on customer)
 
-        [Required]
-        public AuditAction Action { get; set; }
+        public string Actor { get; init; } = default!;                 // user/service principal / client id
+        public string? CorrelationId { get; init; }                    // trace across HTTP & AMQP
 
-        /// <summary>
-        /// Actor identifier (e.g., token subject, email, system).
-        /// </summary>
-        [Required, StringLength(256)]
-        public string Actor { get; set; } = string.Empty;
+        public DateTimeOffset Timestamp { get; init; }                 // UTC
+        public string? BeforeJson { get; init; }                       // jsonb
+        public string? AfterJson { get; init; }                        // jsonb
 
-        /// <summary>
-        /// Timestamp in UTC.
-        /// </summary>
-        [Required]
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-
-        /// <summary>
-        /// Snapshot before mutation (nullable for CREATE).
-        /// </summary>
-        public string? BeforeJson { get; set; }
-
-        /// <summary>
-        /// Snapshot after mutation (required).
-        /// </summary>
-        [Required]
-        public string AfterJson { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Optional correlation ID for tracing a request across services.
-        /// </summary>
-        public string? CorrelationId { get; set; }
+        // Optional categorization
+        public string? Source { get; init; }                           // "API", "Consumer", "Scheduler"
+        public string? Environment { get; init; }                      // "dev", "qa", "prod"
     }
-
 }
