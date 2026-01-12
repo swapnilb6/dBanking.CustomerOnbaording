@@ -1,7 +1,4 @@
-﻿using dBanking.Core;
-using dBanking.Core.DTOS.Validators;
-using dBanking.Core.Mappers;
-using dBanking.Core.Messages;
+﻿using dBanking.Core.Mappers;
 using dBanking.Core.Repository_Contracts;
 using dBanking.Core.ServiceContracts;
 using dBanking.Core.Services;
@@ -15,13 +12,15 @@ using MassTransit;
 using MassTransit.RabbitMqTransport.Topology;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Identity.Web;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
 
 
 var builder = WebApplication.CreateBuilder(args);
-
+var configuration = builder.Configuration;
 // Add services to the container.
 builder.Services.AddInfrastructureServices();
 dBanking.Core.dependancyInjection.AddCoreServices(builder.Services);
@@ -35,34 +34,77 @@ builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+
+// AuthN: JWT Bearer from Entra ID for a protected web API
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
 
-// Register authorization policies that map to scope claims (scp / scope)
+// AuthZ: policies based on delegated scopes
 builder.Services.AddAuthorization(options =>
 {
-    // App.read -> requires token to contain "customer:read"
-    options.AddPolicy("App.read", policy =>
-        policy.RequireAssertion(context =>
-            context.User.Claims.Any(c =>
-                (c.Type == "scp" || c.Type == "scope" || c.Type == "http://schemas.microsoft.com/identity/claims/scope") &&
-                c.Value.Split(' ').Contains("customer:read")
-            )
-        )
-    );
-
-    // App.write -> requires token to contain "customer:write"
-    options.AddPolicy("App.write", policy =>
-        policy.RequireAssertion(context =>
-            context.User.Claims.Any(c =>
-                (c.Type == "scp" || c.Type == "scope" || c.Type == "http://schemas.microsoft.com/identity/claims/scope") &&
-                c.Value.Split(' ').Contains("customer:write")
-            )
-        )
-    );
+    // The 'scp' claim contains short scope names like "App.read", "App.write"
+    options.AddPolicy("App.Read", policy => policy.RequireScope("App.read"));
+    options.AddPolicy("App.Write", policy => policy.RequireScope("App.write"));
 });
 
+
+// Swagger/OpenAPI + OAuth2 (Authorization Code + PKCE)
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "dBanking.CMS API", Version = "v1" });
+
+    var tenantId = builder.Configuration["AzureAd:TenantId"];
+    var instance = builder.Configuration["AzureAd:Instance"]; // https://login.microsoftonline.com/
+    var authUrl = $"{instance}{tenantId}/oauth2/v2.0/authorize";
+    var tokenUrl = $"{instance}{tenantId}/oauth2/v2.0/token";
+
+
+    var apiClientId = builder.Configuration["AzureAd:ClientId"];
+    var scopes = new Dictionary<string, string>
+    {
+        [$"api://{apiClientId}/App.read"] = "Read access to dBanking.CMS",
+        [$"api://{apiClientId}/App.write"] = "Write access to dBanking.CMS"
+    };
+    c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.OAuth2,
+        Flows = new OpenApiOAuthFlows
+        {
+            AuthorizationCode = new OpenApiOAuthFlow
+            {
+                AuthorizationUrl = new Uri(authUrl),
+                TokenUrl = new Uri(tokenUrl),
+                Scopes = new Dictionary<string, string>
+                {
+                    [$"api://{builder.Configuration["AzureAd:ClientId"]}/App.read"] = "Read access",
+                    [$"api://{builder.Configuration["AzureAd:ClientId"]}/App.write"] = "Write access"
+                }
+            }
+        },
+        Description = "OAuth2 Authorization Code Flow with PKCE (Azure AD / Entra ID)"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+{
+    {
+        new OpenApiSecurityScheme
+        {
+            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "oauth2" }
+        },
+        new List<string>
+        {
+            $"api://{builder.Configuration["AzureAd:ClientId"]}/App.read",
+            $"api://{builder.Configuration["AzureAd:ClientId"]}/App.write"
+        }
+    }
+});
+});
+
+// The following flag can be used to get more descriptive errors in development environments
+IdentityModelEventSource.ShowPII = false;
 
 
 // MassTransit + RabbitMQ
@@ -188,61 +230,24 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddDbContext<AppPostgresDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgresAzureDb")));
 
-
-
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "CMS API", Version = "v1" });
-    var tokenUrlString = builder.Configuration.GetValue<string>("AzureAd:TokenUrl");
-    if (string.IsNullOrWhiteSpace(tokenUrlString))
-    {
-        throw new InvalidOperationException("AzureAd.TokenUrl configuration value is missing or empty.");
-    }
-    c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
-    {
-        Flows = new OpenApiOAuthFlows
-        {
-            ClientCredentials = new OpenApiOAuthFlow
-            {
-                // TokenUrl = new Uri(tokenUrlString),
-                // Scopes = new Dictionary<string, string>
-                //{
-                //    {"api://38be1d86-8bdc-4bad-ad6c-c20ca69474f0/.default",".default" }
-                //},
-
-                TokenUrl = new Uri("https://localhost:44369/api/auth/token"),
-            }
-        },
-
-        In = ParameterLocation.Header,
-        Name = HeaderNames.Authorization,
-        Type = SecuritySchemeType.OAuth2
-    });
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-
-            {   new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "oauth2"
-                    }
-                },
-                new[] { "App.read", "App.write" }
-            }
-    });
-});
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
+
+    // Swagger UI + OAuth2 client settings
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "dBanking.CMS API v1");
+        c.OAuthClientId(builder.Configuration["Swagger:ClientId"]);        // Swagger app's client ID
+        c.OAuthScopes(builder.Configuration.GetSection("Swagger:Scopes").Get<string[]>() ?? Array.Empty<string>());
+        c.OAuthUsePkce();                                                  // <-- REQUIRED
+        c.OAuth2RedirectUrl(builder.Configuration["Swagger:RedirectUri"]); // e.g. https://localhost:5001/swagger/oauth2-redirect.html
+    });
 }
 
 app.UseExceptionHandellingMW();
-
 app.UseMiddleware<CorrelationIdMiddleware>();
 
 

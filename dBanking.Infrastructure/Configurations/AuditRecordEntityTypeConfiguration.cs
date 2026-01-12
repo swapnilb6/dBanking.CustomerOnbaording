@@ -6,7 +6,7 @@ public sealed class AuditRecordEntityTypeConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<AuditRecord> b)
     {
-        b.ToTable("audit_records");
+        b.ToTable("AuditRecords", schema: "public");
 
         b.HasKey(x => x.AuditRecordId);
         b.Property(x => x.EntityType).IsRequired().HasMaxLength(100);

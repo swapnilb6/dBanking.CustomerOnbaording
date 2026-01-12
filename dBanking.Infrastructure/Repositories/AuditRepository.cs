@@ -12,9 +12,16 @@ namespace dBanking.Infrastructure.Repositories
 
         public async Task AddAsync(AuditRecord audit, CancellationToken ct = default)
         {
-            await _db.Set<AuditRecord>().AddAsync(audit, ct);
-            await _db.SaveChangesAsync(ct); // Commit immediately; no updates allowed
+            try
+            {
+                await _db.Set<AuditRecord>().AddAsync(audit, ct);
+                await _db.SaveChangesAsync(ct); // Commit immediately; no updates allowed
+            }
+            catch (Exception ex)
+            {
+                // Log the exception or handle it as needed
+                throw new Exception("An error occurred while adding the audit record.", ex);
+            }
         }
-
     }
 }
