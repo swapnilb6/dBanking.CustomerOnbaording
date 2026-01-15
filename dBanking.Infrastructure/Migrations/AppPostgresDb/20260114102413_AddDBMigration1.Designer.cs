@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using dBanking.Infrastructure.DbContext;
@@ -11,9 +12,11 @@ using dBanking.Infrastructure.DbContext;
 namespace dBanking.Infrastructure.Migrations.AppPostgresDb
 {
     [DbContext(typeof(AppPostgresDbContext))]
-    partial class AppPostgresDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260114102413_AddDBMigration1")]
+    partial class AddDBMigration1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

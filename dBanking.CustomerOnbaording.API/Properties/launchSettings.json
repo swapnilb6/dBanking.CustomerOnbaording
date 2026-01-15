@@ -59,5 +59,14 @@
       "applicationUrl": "http://localhost:16046",
       "sslPort": 44369
     }
+  },
+"dBanking.CustomerOnboarding.API": {
+    "commandName": "Project",
+    "dotnetRunMessages": true,
+    "launchBrowser": true,
+    "applicationUrl": "http://localhost:5017;https://localhost:7207",
+    "environmentVariables": {
+      "ASPNETCORE_ENVIRONMENT": "Development"
+    }
   }
 }

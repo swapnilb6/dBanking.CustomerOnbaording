@@ -228,7 +228,7 @@ builder.Services.AddFluentValidationAutoValidation();
 // PostgreSQL registration using AppPostgresDbContext
 // Make sure you have a connection string named "PostgresDB" in configuration
 builder.Services.AddDbContext<AppPostgresDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgresAzureDb")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("LocalPostgresDB")));
 
 var app = builder.Build();
 
