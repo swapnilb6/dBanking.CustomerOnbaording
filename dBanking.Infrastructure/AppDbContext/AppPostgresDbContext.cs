@@ -1,4 +1,5 @@
 ﻿using dBanking.Core.Entities;
+using dBanking.Infrastructure.Configurations;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -54,6 +55,7 @@ namespace dBanking.Infrastructure.DbContext
             // -----------------------------
             // KycCase
             // -----------------------------
+            b.ApplyConfiguration(new KycCaseEntityTypeConfiguration());
             b.Entity<KycCase>(e =>
             {
                 e.HasKey(x => x.KycCaseId);
@@ -193,7 +195,7 @@ namespace dBanking.Infrastructure.DbContext
                     AuditRecordId = audit1Id,
                     EntityType = "Customer",
                     TargetEntityId = cust1Id,
-                    Action = "CREATE",
+                    Action = AuditAction.Create,
                     Actor = "sub:rahul@aad",
                     Timestamp = new DateTime(2025, 12, 1, 10, 36, 30, DateTimeKind.Utc),
                     BeforeJson = null,
@@ -205,7 +207,7 @@ namespace dBanking.Infrastructure.DbContext
                     AuditRecordId = audit2Id,
                     EntityType = "KycCase",
                     TargetEntityId = kyc1Id,
-                    Action = "CREATE",
+                    Action = AuditAction.KycStarted,
                     Actor = "sub:rahul@aad",
                     Timestamp = new DateTime(2025, 12, 1, 10, 36, 50, DateTimeKind.Utc),
                     BeforeJson = null,
@@ -217,7 +219,7 @@ namespace dBanking.Infrastructure.DbContext
                     AuditRecordId = audit3Id,
                     EntityType = "Customer",
                     TargetEntityId = cust3Id,
-                    Action = "UPDATE",
+                    Action = AuditAction.Update,
                     Actor = "system:closure",
                     Timestamp = new DateTime(2025, 12, 5, 14, 00, 20, DateTimeKind.Utc),
                     BeforeJson = "{\"customerId\":\"99998888-7777-6666-5555-444433332222\",\"status\":\"VERIFIED\"}",

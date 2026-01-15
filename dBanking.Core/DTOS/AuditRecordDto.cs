@@ -1,4 +1,5 @@
-﻿using System;
+﻿using dBanking.Core.Entities;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -9,7 +10,7 @@ namespace dBanking.Core.DTOS
 {
     public sealed record AuditEntryDto(
         string EntityType,
-        string Action,
+        AuditAction Action,
         Guid? TargetEntityId,
         Guid? RelatedEntityId,
         string Actor,

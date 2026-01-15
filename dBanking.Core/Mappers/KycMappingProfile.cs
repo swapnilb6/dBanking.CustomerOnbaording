@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿
+using AutoMapper;
 using dBanking.Core.DTOS;
 using dBanking.Core.Entities;
 using System.Text.Json;
@@ -9,12 +10,18 @@ namespace dBanking.Core.MappingProfiles
     {
         public KycMappingProfile()
         {
-            // Create request -> entity
+            // DTO -> Entity
             CreateMap<KycCaseCreateRequestDto, KycCase>()
+                // Persist JSONB
+                .ForMember(d => d.EvidenceRefsJson, o => o.MapFrom((s, d) =>
+                    s.EvidenceRefs == null ? "[]" : JsonSerializer.Serialize(s.EvidenceRefs)))
+
+                // Ignore computed property
+                .ForMember(d => d.EvidenceRefs, o => o.Ignore())
+
                 .ForMember(dest => dest.KycCaseId, opt => opt.MapFrom(_ => Guid.NewGuid()))
                 .ForMember(dest => dest.CustomerId, opt => opt.MapFrom(src => src.CustomerId))
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => KycStatus.PENDING))
-                .ForMember(dest => dest.EvidenceRefsJson, opt => opt.MapFrom(src => src.EvidenceRefs))
+                .ForMember(d => d.Status, op => op.MapFrom(_ => KycStatus.PENDING))
                 .ForMember(dest => dest.ConsentText, opt => opt.MapFrom(src => src.ConsentText))
                 .ForMember(dest => dest.AcceptedAt, opt => opt.MapFrom(src => src.AcceptedAt))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
@@ -22,21 +29,11 @@ namespace dBanking.Core.MappingProfiles
                 .ForMember(dest => dest.ProviderRef, opt => opt.Ignore())
                 .ForMember(dest => dest.Customer, opt => opt.Ignore());
 
-            //// Entity -> Response DTO
-            //CreateMap<KycCase, KycCaseResponseDto>()
-            //    .ForMember(dest => dest.Status, opt => opt.MapFrom(src => MapStatus(src.Status)))
-            //    .ForMember(dest => dest.EvidenceRefs, opt => opt.MapFrom(src => string.IsNullOrWhiteSpace(src.EvidenceRefsJson)
-            //            ? Array.Empty<string>() : JsonSerializer.Deserialize<List<string>>(src.EvidenceRefsJson)!));
-
-            // Entity -> Summary DTO
             CreateMap<KycCase, KycCaseSummaryDto>()
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => MapStatus(src.Status)));
-
-           
         }
 
-        // Local converter
-        static KycStatusDto MapStatus(KycStatus s) => s switch
+        private static KycStatusDto MapStatus(KycStatus s) => s switch
         {
             KycStatus.PENDING => KycStatusDto.PENDING,
             KycStatus.VERIFIED => KycStatusDto.VERIFIED,

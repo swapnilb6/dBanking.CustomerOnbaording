@@ -33,7 +33,7 @@ namespace dBanking.Core.Services
             var audit = new AuditRecord
             {
                 EntityType = entry.EntityType,
-                Action = entry.Action,
+                Action = AuditAction.Create,
                 TargetEntityId = entry.TargetEntityId,
                 RelatedEntityId = entry.RelatedEntityId,
                 Actor = entry.Actor,

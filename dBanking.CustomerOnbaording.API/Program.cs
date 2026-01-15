@@ -1,4 +1,6 @@
-﻿using dBanking.Core.Mappers;
+﻿using AutoMapper;
+using dBanking.Core.Mappers;
+using dBanking.Core.MappingProfiles;
 using dBanking.Core.Repository_Contracts;
 using dBanking.Core.ServiceContracts;
 using dBanking.Core.Services;
@@ -13,6 +15,7 @@ using MassTransit.RabbitMqTransport.Topology;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.Net.Http.Headers;
@@ -127,6 +130,8 @@ builder.Services.AddMassTransit(x =>
             }
         });
 
+        cfg.UseInMemoryOutbox(); // ensures publish is deferred until handler completes
+        
         // Set the exchange names (entity names)
         cfg.Message<dBanking.Core.Messages.CustomerCreated>(mt =>
         {
@@ -170,6 +175,30 @@ builder.Services.AddMassTransit(x =>
             // e.UseConcurrencyLimit(8);
         });
 
+
+        // Example of a manual binding to a topic exchange with a fan-in queue
+        cfg.ReceiveEndpoint("customer-events-queue", e =>
+        {
+            e.ConfigureConsumeTopology = false; // we will bind manually
+
+            e.Bind("event.customer.created", x =>
+            {
+                x.ExchangeType = "topic";
+                x.RoutingKey = "#";        // accept all routing keys
+                x.Durable = true;
+            });
+
+            // If you don’t attach a consumer, messages will pile up in the queue.
+            // You can attach a handler to prove it’s working:
+            e.Handler<dBanking.Core.Messages.CustomerCreated>(ctx =>
+            {
+                // For diagnostics; remove later
+                Console.WriteLine($"[CustomerCreated] {ctx.Message.CustomerId}");
+                return Task.CompletedTask;
+            });
+        });
+
+
         // REMOVE this 'customer-events-queue' until you attach consumers to it.
         // Otherwise it's a dead queue accumulating messages.
         // If/when you need a fan-in queue for multiple topics with manual routing keys:
@@ -211,13 +240,20 @@ builder.Services.AddOptions<MassTransitHostOptions>().Configure(options =>
 });
 
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.SetMinimumLevel(LogLevel.Debug);
+
 // Add controllers
 builder.Services.AddControllers();
 
 builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddProfile<CustomerMappingProfile>();
+    cfg.AddProfile<KycMappingProfile>();
 });
+
+
 
 builder.Services.AddFluentValidationAutoValidation();
 
@@ -228,7 +264,7 @@ builder.Services.AddFluentValidationAutoValidation();
 // PostgreSQL registration using AppPostgresDbContext
 // Make sure you have a connection string named "PostgresDB" in configuration
 builder.Services.AddDbContext<AppPostgresDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("LocalPostgresDB")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgresAzureDb")));
 
 var app = builder.Build();
 
@@ -246,6 +282,7 @@ if (app.Environment.IsDevelopment())
         c.OAuth2RedirectUrl(builder.Configuration["Swagger:RedirectUri"]); // e.g. https://localhost:5001/swagger/oauth2-redirect.html
     });
 }
+
 
 app.UseExceptionHandellingMW();
 app.UseMiddleware<CorrelationIdMiddleware>();

@@ -48,22 +48,29 @@ namespace dBanking.Core.Services
             var customer = await _customers.GetByIdAsync(dto.CustomerId, ct);
             if (customer is null)
                 throw new KeyNotFoundException($"Customer '{dto.CustomerId}' not found.");
-
-            // Map DTO -> entity
-            var entity = _mapper.Map<KycCase>(dto);
-
-            await _kycCases.AddAsync(entity, ct);
-            await _kycCases.SaveChangesAsync(ct);
+            try
+            {
+                // Map DTO -> entity
+                var entity = _mapper.Map<KycCase>(dto);
 
 
+                // Assign keys managed by service
+                entity.KycCaseId = Guid.NewGuid();
+                entity.CustomerId = dto.CustomerId; // or from route param if you pass it separately
 
-            // (Optional) Audit: create KYC case
-            // await _audit.RecordAsync(...)
 
-            // Audit: KycStarted (with consent/evidence refs)
-            await _audit.RecordAsync(new AuditEntryDto(
+                await _kycCases.AddAsync(entity, ct);
+                await _kycCases.SaveChangesAsync(ct);
+
+
+
+                // (Optional) Audit: create KYC case
+                // await _audit.RecordAsync(...)
+
+                // Audit: KycStarted (with consent/evidence refs)
+                await _audit.RecordAsync(new AuditEntryDto(
                 EntityType: "KycCase",
-                Action: "KycStarted",
+                Action: AuditAction.KycStarted,
                 TargetEntityId: entity.KycCaseId,
                 RelatedEntityId: customer.CustomerId,
                 Actor: "KycCaseService",
@@ -72,9 +79,14 @@ namespace dBanking.Core.Services
                 AfterSnapshot: new { entity.KycCaseId, entity.CustomerId, entity.Status, entity.ProviderRef, EvidenceRefs = dto.EvidenceRefs, entity.ConsentText, entity.AcceptedAt },
                 Source: "API"
             ), ct);
+                return entity;
 
+            }
+            catch (Exception ex)
+            {
+                throw new ValidationException("An open KYC case already exists for this customer.");
+            }
 
-            return entity;
         }
 
         public async Task<KycCase> UpdateStatusAsync(KycStatusUpdateRequestDto dto, CancellationToken ct)
@@ -149,7 +161,7 @@ namespace dBanking.Core.Services
             // Audit: KycStatusChanged (before/after JSON)
             await _audit.RecordAsync(new AuditEntryDto(
                 EntityType: "KycCase",
-                Action: "KycStatusChanged",
+                Action: AuditAction.KycStatusChanged,
                 TargetEntityId: entity.KycCaseId,
                 RelatedEntityId: entity.CustomerId,
                 Actor: "KycCaseService",

@@ -25,7 +25,11 @@ namespace dBanking.Core.Entities
     }
     public enum AuditAction
     {
-        CREATE = 0,
-        UPDATE = 1
+
+        Create = 1,
+        Update = 2,
+        KycStarted = 3,
+        KycStatusChanged = 4
+
     }
 }

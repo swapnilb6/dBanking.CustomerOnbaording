@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace dBanking.Core.Entities
 {
@@ -15,14 +16,19 @@ namespace dBanking.Core.Entities
 
         [Required]
         public KycStatus Status { get; set; } = KycStatus.PENDING;
-
         public string? ProviderRef { get; set; }
 
-        /// <summary>
-        /// Evidence references (doc IDs). Stored as JSON (string) for portability.
-        /// If you're on PostgreSQL, you can map to jsonb and use List&lt;string&gt; with a value converter.
-        /// </summary>
+        // Persisted as jsonb in DB
         public string? EvidenceRefsJson { get; set; }
+
+        // Computed view (not mapped)
+        [NotMapped]
+        public IReadOnlyList<string> EvidenceRefs =>
+            string.IsNullOrWhiteSpace(EvidenceRefsJson)
+                ? Array.Empty<string>()
+                : System.Text.Json.JsonSerializer.Deserialize<List<string>>(EvidenceRefsJson)!;
+
+
 
         /// <summary>
         /// Consent text displayed to the customer (versioned in provider/backend).

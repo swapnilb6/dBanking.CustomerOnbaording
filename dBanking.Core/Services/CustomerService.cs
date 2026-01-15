@@ -74,7 +74,7 @@ namespace dBanking.Core.Services
             // Audit: CustomerCreated
             await _audit.RecordAsync(new DTOS.AuditEntryDto(
                 EntityType: "Customer",
-                Action: "CustomerCreated",
+                Action: AuditAction.Create,
                 TargetEntityId: input.CustomerId,
                 RelatedEntityId: null,
                 Actor: "CustomerService",
@@ -150,7 +150,7 @@ namespace dBanking.Core.Services
 
             await _audit.RecordAsync(new DTOS.AuditEntryDto(
                         EntityType: "Customer",
-                        Action: "CustomerUpdated",
+                        Action: AuditAction.Update,
                         TargetEntityId: customer.CustomerId,
                         RelatedEntityId: null,
                         Actor: "CustomerService",
