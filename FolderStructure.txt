@@ -1,0 +1,27 @@
+﻿dBanking.ProfileManagement
+ ├── dBanking.ProfileManagement.API
+ │    ├── Controllers/
+ │    ├── Middlewares/
+ │    ├── Filters/
+ │    ├── Program.cs
+ │    └── appsettings.json
+ │
+ ├── dBanking.ProfileManagement.Core
+ │    ├── Entities/
+ │    ├── DTOs/
+ │    ├── Contracts/
+ │    ├── Services/
+ │    ├── MappingProfiles/
+ │    └── Validators/
+ │
+ ├── dBanking.ProfileManagement.Infrastructure
+ │    ├── DbContext/
+ │    ├── Repositories/
+ │    ├── Messaging/
+ │    ├── NotificationAdapters/
+ │    └── DependencyInjection.cs
+ │
+ └── dBanking.ProfileManagement.Tests
+      ├── UnitTests/
+      ├── IntegrationTests/
+      └── TestHarness (MassTransit)

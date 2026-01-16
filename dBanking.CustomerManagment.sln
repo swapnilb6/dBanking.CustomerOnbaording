@@ -5,13 +5,19 @@ VisualStudioVersion = 17.14.36717.8
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.CustomerOnbaording.API", "dBanking.CustomerOnbaording.API\dBanking.CustomerOnbaording.API.csproj", "{E93489E7-E0FF-4B99-A95C-6279389203F6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.Infrastructure", "dBanking.Infrastructure\dBanking.Infrastructure.csproj", "{ADCB0FF7-D2D0-43EC-841A-F6FA5EF4D939}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.CmsOnboarding.Infrastructure", "dBanking.Infrastructure\dBanking.CmsOnboarding.Infrastructure.csproj", "{ADCB0FF7-D2D0-43EC-841A-F6FA5EF4D939}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.Core", "dBanking.Core\dBanking.Core.csproj", "{CBA3B9DC-62A9-4929-A0AA-85270EFD6056}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.CmsOnboarding.Core", "dBanking.Core\dBanking.CmsOnboarding.Core.csproj", "{CBA3B9DC-62A9-4929-A0AA-85270EFD6056}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.Tests", "dBanking.Tests\dBanking.Tests.csproj", "{07EFA098-3CB7-4ED5-A802-856BB45AF810}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.CmsOnboarding.Tests", "dBanking.Tests\dBanking.CmsOnboarding.Tests.csproj", "{07EFA098-3CB7-4ED5-A802-856BB45AF810}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Customer Onboarding", "Customer Onboarding", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Profile Management", "Profile Management", "{D3454A36-5093-4B23-B785-DEE63C735391}"
+	ProjectSection(SolutionItems) = preProject
+		FolderStructure.txt = FolderStructure.txt
+		Overview.txt = Overview.txt
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

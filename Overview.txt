@@ -1,0 +1,203 @@
+﻿✅ High-Level Overview — dBanking.ProfileManagement Service
+Purpose:
+A standalone ASP.NET Core microservice that manages contacts (email/phone verification), addresses, communication preferences, and audit trails for existing customers.
+It is intentionally separated from onboarding because:
+
+Profile data is frequently accessed/updated post‑onboarding
+Verification flows have different SLA and scaling patterns
+Security requirements (notifications to old channels, monitoring) differ
+Downstream services (CRM, Marketing, Alerts) depend on profile changes
+Clear ownership in domain-driven design (DDD)
+
+The new service will mirror onboarding’s architecture for consistency.
+
+1️⃣ Service Architecture Layers
+1. Presentation / API Layer
+Namespace: dBanking.ProfileManagement.API
+Responsibilities:
+
+API endpoints for Contacts, Addresses, Preferences
+Authentication & authorization (Azure AD / JWT)
+Model validation via FluentValidation
+Middleware (Correlation Id / Exception handler / Audit Enricher)
+Swagger/OpenAPI
+Interaction with application services only (no domain/persistence logic)
+
+
+2. Core / Domain Layer
+Namespace: dBanking.ProfileManagement.Core
+Contains:
+Entities
+
+ContactInfo (email, phone, status, pending values)
+AddressInfo (residential/mailing)
+PreferenceInfo (SMS/Email/Push, regulatory consents)
+VerificationToken (email/phone)
+AuditRecord (old vs new values)
+
+DTOs
+
+UpdateEmailRequest, UpdatePhoneRequest
+AddressUpdateRequest
+PreferencesUpdateRequest
+Verification DTOs (SendOtpDto / VerifyOtpDto)
+
+Service Contracts
+
+IContactService
+IAddressService
+IPreferenceService
+IVerificationService
+IAuditService
+
+Application Services
+
+Orchestrate verification flows
+Apply domain rules (email/phone verification before commit)
+Publish domain events
+Write audit logs
+Trigger notifications via messaging
+
+Mapping Profiles
+
+AutoMapper profiles (ContactProfile, AddressProfile, PreferenceProfile)
+
+
+3. Infrastructure Layer
+Namespace: dBanking.ProfileManagement.Infrastructure
+DbContext
+
+ProfileDbContext (PostgreSQL)
+Tables:
+Contacts
+Addresses
+Preferences
+VerificationTokens
+Audit Logs (append-only)
+
+Repositories
+
+ContactRepository
+AddressRepository
+PreferenceRepository
+VerificationRepository
+AuditRepository
+
+Integrations
+
+MassTransit (publish domain events + outbox pattern)
+Notification Service (SMS/Email/Push)
+Identity/Customer service (lookup & ownership checks)
+
+Dependency Injection Config
+
+Single DependencyInjection.cs to register:
+
+DbContext
+Repositories
+Application services
+MassTransit configuration
+FluentValidators
+AutoMapper
+
+
+
+
+2️⃣ Messaging Layer (MassTransit + RabbitMQ)
+The service will publish events such as:
+
+profile.email.change_requested
+profile.email.verified
+profile.phone.verified
+profile.address.updated
+profile.preferences.updated
+
+Other services (CRM, Alerts, Marketing) will consume these.
+Also supports:
+
+Soft workflows: verification link/OTP → commit profile change
+Outbox pattern: ensures no message loss even if DB commit fails
+
+
+3️⃣ External Identity
+
+Azure AD / Microsoft Identity Web (JWT bearer validation)
+Same configuration as onboarding for consistency
+
+Roles:
+
+Customer → Update own profile
+CSA (Customer Service Agent) → Restricted access
+Supervisor → Sensitive field overrides (future)
+
+
+4️⃣ Observability
+
+Structured logging (Console + Serilog optional)
+Full audit trail persisted (old vs new values, actor, timestamp)
+Correlation Id passed across microservices
+Telemetry export (App Insights stack or ELK)
+
+
+5️⃣ Folder/Project Structure (Mirrors Onboarding Service)
+dBanking.ProfileManagement
+ ├── dBanking.ProfileManagement.API
+ │    ├── Controllers/
+ │    ├── Middlewares/
+ │    ├── Filters/
+ │    ├── Program.cs
+ │    └── appsettings.json
+ │
+ ├── dBanking.ProfileManagement.Core
+ │    ├── Entities/
+ │    ├── DTOs/
+ │    ├── Contracts/
+ │    ├── Services/
+ │    ├── MappingProfiles/
+ │    └── Validators/
+ │
+ ├── dBanking.ProfileManagement.Infrastructure
+ │    ├── DbContext/
+ │    ├── Repositories/
+ │    ├── Messaging/
+ │    ├── NotificationAdapters/
+ │    └── DependencyInjection.cs
+ │
+ └── dBanking.ProfileManagement.Tests
+      ├── UnitTests/
+      ├── IntegrationTests/
+      └── TestHarness (MassTransit)
+
+
+6️⃣ Key Design Principles
+✔ Match Onboarding’s architecture for consistency
+✔ Domain-focused boundaries (Profile ≠ Onboarding ≠ Party)
+✔ Verification flows isolated behind IVerificationService
+✔ Audit logging as first-class responsibility
+✔ Notifications triggered on both:
+
+Old contact channels
+New contact channels
+✔ Event-driven propagation (CRM, alerts service, etc.)
+✔ Outbox to ensure message reliability
+
+
+7️⃣ Minimal Set of APIs (v1)
+Contacts
+POST   /contacts/email/change-request
+POST   /contacts/email/verify
+POST   /contacts/phone/change-request
+POST   /contacts/phone/verify
+GET    /contacts
+
+Addresses
+GET    /addresses
+PUT    /addresses/{id}
+
+Preferences
+GET    /preferences
+PUT    /preferences
+
+Audit
+GET    /audit?entity=contacts|addresses|preferences
+

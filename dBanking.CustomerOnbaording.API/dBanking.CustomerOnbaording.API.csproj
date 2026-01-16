@@ -36,8 +36,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\dBanking.Core\dBanking.Core.csproj" />
-    <ProjectReference Include="..\dBanking.Infrastructure\dBanking.Infrastructure.csproj" />
+    <ProjectReference Include="..\dBanking.Core\dBanking.CmsOnboarding.Core.csproj" />
+    <ProjectReference Include="..\dBanking.Infrastructure\dBanking.CmsOnboarding.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
