@@ -1,0 +1,36 @@
+@startuml
+title dBanking.CustomerOnbaording - System Overview
+
+actor "Client" as Client
+node "API\n(dBanking.CustomerOnbaording.API)" as API {
+  rectangle "Controllers\n(HTTP endpoints)" as Controllers
+  rectangle "Middlewares\n(Correlation, AuthZ, Audit)" as Middlewares
+  rectangle "MassTransit\n(IPublishEndpoint)" as MassTransit
+  rectangle "Services\n(KycCaseService, CustomerService, AuditService)" as Services
+  Controllers --> Services : calls
+  Services --> MassTransit : publish events
+  Controllers --> Middlewares : pass through
+}
+database "PostgreSQL\n(AppPostgresDbContext)" as Postgres
+node "Message Broker\n(RabbitMQ)" as Broker
+
+node "Consumers\n(in API or external workers)" as Consumers {
+  rectangle "KYC Consumers" as KycConsumers
+  rectangle "Other Consumers" as OtherConsumers
+}
+MassTransit --> Broker
+Broker --> Consumers : deliver events
+Services --> Postgres : read/write (via repositories)
+Consumers --> Postgres : update/read
+
+actor "Azure AD\n(Identity)" as AzureAD
+Client --> API : HTTP + JWT
+API --> AzureAD : validate token
+
+note right of API
+ - AutoMapper, FluentValidation
+ - Swagger / OpenAPI
+ - Dockerized (Dockerfile)
+end note
+
+@enduml
