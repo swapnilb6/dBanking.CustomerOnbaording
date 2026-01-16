@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Consumers;
 using dBanking.Core.Mappers;
 using dBanking.Core.MappingProfiles;
 using dBanking.Core.Repository_Contracts;
@@ -173,6 +174,17 @@ builder.Services.AddMassTransit(x =>
 
             // Optional throughput cap:
             // e.UseConcurrencyLimit(8);
+        });
+
+        cfg.ReceiveEndpoint("customer-created-processor", e =>
+        {
+            e.ConfigureConsumer<CustomerCreatedConsumer>(context);
+
+            // Best practice defaults:
+            e.PrefetchCount = 10;
+
+            e.UseMessageRetry(r => r.Interval(5, TimeSpan.FromSeconds(3))); // retry
+            e.UseInMemoryOutbox(); // ensures atomicity
         });
 
 

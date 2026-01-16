@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.Core", "dBanking.C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dBanking.Tests", "dBanking.Tests\dBanking.Tests.csproj", "{07EFA098-3CB7-4ED5-A802-856BB45AF810}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Customer Onboarding", "Customer Onboarding", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,6 +38,12 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E93489E7-E0FF-4B99-A95C-6279389203F6} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{ADCB0FF7-D2D0-43EC-841A-F6FA5EF4D939} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{CBA3B9DC-62A9-4929-A0AA-85270EFD6056} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{07EFA098-3CB7-4ED5-A802-856BB45AF810} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C1DBC964-6ED0-4C0A-BEF0-29F012A3CDF3}

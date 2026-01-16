@@ -6,8 +6,6 @@ using System.Threading.Tasks;
 
 namespace dBanking.Core.Messages
 {
-    
-
     public interface CustomerCreated
     {
         Guid CustomerId { get; }
