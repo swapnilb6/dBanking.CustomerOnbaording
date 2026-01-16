@@ -10,8 +10,8 @@
 	  <PackageReference Include="MassTransit" Version="8.0.16" />
 	  <PackageReference Include="MassTransit.RabbitMQ" Version="8.0.16" />
 	  <PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.0.16" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="8.0.22"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.22"/>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="8.0.22" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.22" />
 	  <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.22" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.22">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\dBanking.Core\dBanking.Core.csproj" />
+    <ProjectReference Include="..\dBanking.Core\dBanking.CmsOnboarding.Core.csproj" />
   </ItemGroup>
 
 </Project>
