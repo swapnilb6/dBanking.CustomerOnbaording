@@ -1,25 +1,23 @@
 {
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:16046",
+      "sslPort": 44369
+    }
+  },
   "profiles": {
-    "http": {
+    "dBanking.CustomerOnboarding.API": {
       "commandName": "Project",
-      "launchUrl": "swagger",
+      "dotnetRunMessages": true,
       "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:5017",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
-
-      },
-      "dotnetRunMessages": true,
-      "applicationUrl": "http://localhost:5017"
-    },
-    "https": {
-      "commandName": "Project",
-      "launchUrl": "swagger",
-      "launchBrowser": true,
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "dotnetRunMessages": true,
-      "applicationUrl": "https://localhost:7207;http://localhost:5017"
+      }
     },
     "IIS Express": {
       "commandName": "IISExpress",
@@ -39,34 +37,6 @@
       },
       "publishAllPorts": true,
       "useSSL": true
-    },
-    "WSL": {
-      "commandName": "WSL2",
-      "launchBrowser": true,
-      "launchUrl": "https://localhost:7207",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "https://localhost:7207;http://localhost:5017"
-      },
-      "distributionName": ""
-    }
-  },
-  "$schema": "http://json.schemastore.org/launchsettings.json",
-  "iisSettings": {
-    "windowsAuthentication": false,
-    "anonymousAuthentication": true,
-    "iisExpress": {
-      "applicationUrl": "http://localhost:16046",
-      "sslPort": 44369
-    }
-  },
-"dBanking.CustomerOnboarding.API": {
-    "commandName": "Project",
-    "dotnetRunMessages": true,
-    "launchBrowser": true,
-    "applicationUrl": "http://localhost:5017;https://localhost:7207",
-    "environmentVariables": {
-      "ASPNETCORE_ENVIRONMENT": "Development"
     }
   }
 }
