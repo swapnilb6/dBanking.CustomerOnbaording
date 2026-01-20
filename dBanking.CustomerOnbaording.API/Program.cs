@@ -176,16 +176,16 @@ builder.Services.AddMassTransit(x =>
             // e.UseConcurrencyLimit(8);
         });
 
-        cfg.ReceiveEndpoint("customer-created-processor", e =>
-        {
-            e.ConfigureConsumer<CustomerCreatedConsumer>(context);
+        //cfg.ReceiveEndpoint("customer-created-processor", e =>
+        //{
+        //    e.ConfigureConsumer<CustomerCreatedConsumer>(context);
 
-            // Best practice defaults:
-            e.PrefetchCount = 10;
+        //    // Best practice defaults:
+        //    e.PrefetchCount = 10;
 
-            e.UseMessageRetry(r => r.Interval(5, TimeSpan.FromSeconds(3))); // retry
-            e.UseInMemoryOutbox(); // ensures atomicity
-        });
+        //    e.UseMessageRetry(r => r.Interval(5, TimeSpan.FromSeconds(3))); // retry
+        //    e.UseInMemoryOutbox(); // ensures atomicity
+        //});
 
 
         // Example of a manual binding to a topic exchange with a fan-in queue
