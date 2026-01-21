@@ -111,6 +111,17 @@ builder.Services.AddSwaggerGen(c =>
 IdentityModelEventSource.ShowPII = false;
 
 
+// RabbitMQ + MassTransit
+var mqHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
+var mqPort = int.Parse(Environment.GetEnvironmentVariable("RABBITMQ_PORT") ?? "5672");
+var mqVh = Environment.GetEnvironmentVariable("RABBITMQ_VHOST") ?? "/";
+var mqUser = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "guest";
+var mqPass = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "guest";
+var mqTls = bool.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_USE_TLS"), out var useTls) && useTls;
+
+
+
+
 // MassTransit + RabbitMQ
 builder.Services.AddMassTransit(x =>
 {
@@ -120,10 +131,10 @@ builder.Services.AddMassTransit(x =>
     {
         var mq = builder.Configuration.GetSection("Messaging:RabbitMq");
 
-        cfg.Host(mq["Host"], mq["VirtualHost"], h =>
+        cfg.Host(mqHost, mqVh, h =>
         {
-            h.Username(mq["Username"]);
-            h.Password(mq["Password"]);
+            h.Username(mqUser);
+            h.Password(mqPass);
 
             if (bool.TryParse(mq["UseTls"], out var useTls) && useTls)
             {
@@ -273,10 +284,22 @@ builder.Services.AddFluentValidationAutoValidation();
 // builder.Services.AddDbContext<AppDBContext>(options =>
 //     options.UseSqlServer(builder.Configuration.GetConnectionString("SqlServerDB")));
 
+
+
+// Postgres
+var pgHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+var pgPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
+var pgDb = Environment.GetEnvironmentVariable("DB_NAME") ?? "dBanking_CMS";
+var pgUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres1";
+var pgPass = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "postgres123";
+var pgDetail = Environment.GetEnvironmentVariable("PG_INCLUDE_ERROR_DETAIL") == "true" ? "true" : "false";
+
+var connString = $"Host={pgHost};Port={pgPort};Database={pgDb};Username={pgUser};Password={pgPass};Include Error Detail={pgDetail}";
+
 // PostgreSQL registration using AppPostgresDbContext
 // Make sure you have a connection string named "PostgresDB" in configuration
 builder.Services.AddDbContext<AppPostgresDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgresAzureDb")));
+    options.UseNpgsql(connString));
 
 var app = builder.Build();
 

@@ -1,12 +1,12 @@
-﻿dBanking.ProfileManagement
- ├── dBanking.ProfileManagement.API
+﻿dBanking.CustomerOnboarding
+ ├── dBanking.CustomerOnboarding.API
  │    ├── Controllers/
  │    ├── Middlewares/
  │    ├── Filters/
  │    ├── Program.cs
  │    └── appsettings.json
  │
- ├── dBanking.ProfileManagement.Core
+ ├── dBanking.CustomerOnboarding.Core
  │    ├── Entities/
  │    ├── DTOs/
  │    ├── Contracts/
@@ -14,14 +14,14 @@
  │    ├── MappingProfiles/
  │    └── Validators/
  │
- ├── dBanking.ProfileManagement.Infrastructure
+ ├── dBanking.CustomerOnboarding.Infrastructure
  │    ├── DbContext/
  │    ├── Repositories/
  │    ├── Messaging/
  │    ├── NotificationAdapters/
  │    └── DependencyInjection.cs
  │
- └── dBanking.ProfileManagement.Tests
+ └── dBanking.CustomerOnboarding.Tests
       ├── UnitTests/
       ├── IntegrationTests/
       └── TestHarness (MassTransit)

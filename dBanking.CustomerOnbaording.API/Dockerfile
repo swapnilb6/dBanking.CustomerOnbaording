@@ -4,9 +4,9 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 USER $APP_UID
 WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081
-
+EXPOSE 9090
+EXPOSE 9091
+ENV ASPNETCORE_URLS=http://0.0.0.0:9090
 
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
