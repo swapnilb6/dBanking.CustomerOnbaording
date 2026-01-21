@@ -1,7 +1,4 @@
-
 version: "3.9"
-
-name: ${COMPOSE_PROJECT_NAME:-dbanking-customer-onboarding}
 
 networks:
   op1-net:
@@ -57,7 +54,7 @@ services:
 
   op1-cust-onboarding-api:
     build:
-      context: ../apps/customer-onboarding
+      context: ./dBanking.CustomerOnbaording.API
       dockerfile: Dockerfile
     container_name: op1-cust-onboarding-api
     depends_on:
@@ -84,15 +81,12 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
       RABBITMQ_USE_TLS: "false"
 
-      # Kestrel port in container is 8080 (from Dockerfile)
-      # We'll map host -> container below
     ports:
       - "${API_HTTP_PORT}:8080"
-      # If you want HTTPS, expose 8443 in Dockerfile and configure certs
     networks:
       - op1-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 10

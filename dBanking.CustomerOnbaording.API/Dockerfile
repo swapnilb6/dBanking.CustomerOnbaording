@@ -1,29 +1,31 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
-
-# This stage is used when running from VS in fast mode (Default for Debug configuration)
+# See https://aka.ms/customizecontainer to learn how to customize your debug container
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-USER $APP_UID
+ARG APP_UID=1000
+# Install curl for healthchecks
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+USER ${APP_UID}
 WORKDIR /app
-EXPOSE 9090
-EXPOSE 9091
-ENV ASPNETCORE_URLS=http://0.0.0.0:9090
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 
-# This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["dBanking.CustomerOnbaording.API/dBanking.CustomerOnbaording.API.csproj", "dBanking.CustomerOnbaording.API/"]
-RUN dotnet restore "./dBanking.CustomerOnbaording.API/dBanking.CustomerOnbaording.API.csproj"
+
+# Copy only the project file (assumes build context is the project folder)
+COPY ["dBanking.CustomerOnbaording.API.csproj", "./"]
+RUN dotnet restore "./dBanking.CustomerOnbaording.API.csproj"
+
+# Copy rest of the project files and build
 COPY . .
-WORKDIR "/src/dBanking.CustomerOnbaording.API"
 RUN dotnet build "./dBanking.CustomerOnbaording.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "./dBanking.CustomerOnbaording.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
