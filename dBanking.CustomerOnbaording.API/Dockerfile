@@ -14,17 +14,18 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy only the project file (assumes build context is the project folder)
-COPY ["dBanking.CustomerOnbaording.API.csproj", "./"]
-RUN dotnet restore "./dBanking.CustomerOnbaording.API.csproj"
+# Copy only the project file from repository root (project in subfolder)
+COPY ["dBanking.CustomerOnbaording.API/dBanking.CustomerOnbaording.API.csproj", "dBanking.CustomerOnbaording.API/"]
+RUN dotnet restore "dBanking.CustomerOnbaording.API/dBanking.CustomerOnbaording.API.csproj"
 
-# Copy rest of the project files and build
+# Copy rest of the repository files and build the project
 COPY . .
-RUN dotnet build "./dBanking.CustomerOnbaording.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/dBanking.CustomerOnbaording.API"
+RUN dotnet build "dBanking.CustomerOnbaording.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./dBanking.CustomerOnbaording.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "dBanking.CustomerOnbaording.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

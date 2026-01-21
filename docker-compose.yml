@@ -32,7 +32,7 @@ services:
       - op1-net
 
   op1-rabbitmq:
-    image: rabbitmq:4-management
+    image: rabbitmq:3.13-management
     container_name: op1-rabbitmq
     restart: unless-stopped
     environment:
@@ -54,8 +54,8 @@ services:
 
   op1-cust-onboarding-api:
     build:
-      context: ./dBanking.CustomerOnbaording.API
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: dBanking.CustomerOnbaording.API/Dockerfile
     container_name: op1-cust-onboarding-api
     depends_on:
       op1-postgres:
