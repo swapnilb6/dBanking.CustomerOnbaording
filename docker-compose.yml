@@ -32,7 +32,7 @@ services:
       - op1-net
 
   op1-rabbitmq:
-    image: rabbitmq:3.13-management
+    image: rabbitmq:4-management
     container_name: op1-rabbitmq
     restart: unless-stopped
     environment:
