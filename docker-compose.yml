@@ -1,23 +1,21 @@
 
 version: "3.9"
 
-# This name and resource names (networks/volumes) will be prefixed by COMPOSE_PROJECT_NAME from env file
-name: ${COMPOSE_PROJECT_NAME:-dbanking-op1}
+name: ${COMPOSE_PROJECT_NAME:-dbanking-customer-onboarding}
 
 networks:
-  op_net:
-    name: ${COMPOSE_PROJECT_NAME}_net
+  op1-net:
     driver: bridge
 
 volumes:
-  op_postgres_data:
-  op_rabbitmq_data:
-  op_rabbitmq_log:
+  op1-postgres-data:
+  op1-rabbitmq-data:
+  op1-rabbitmq-log:
 
 services:
-  postgres:
+  op1-postgres:
     image: postgres:16
-    container_name: ${COMPOSE_PROJECT_NAME}_postgres
+    container_name: op1-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -27,18 +25,18 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - op_postgres_data:/var/lib/postgresql/data
+      - op1-postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost"]
       interval: 5s
       timeout: 3s
       retries: 10
     networks:
-      - op_net
+      - op1-net
 
-  rabbitmq:
-    image: rabbitmq:4.2.2-management
-    container_name: ${COMPOSE_PROJECT_NAME}_rabbitmq
+  op1-rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: op1-rabbitmq
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
@@ -47,48 +45,52 @@ services:
       - "${RABBITMQ_AMQP_PORT}:5672"
       - "${RABBITMQ_HTTP_PORT}:15672"
     volumes:
-      - op_rabbitmq_data:/var/lib/rabbitmq/mnesia
-      - op_rabbitmq_log:/var/log/rabbitmq
+      - op1-rabbitmq-data:/var/lib/rabbitmq/mnesia
+      - op1-rabbitmq-log:/var/log/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
-      - op_net
+      - op1-net
 
-  customer_onboarding_api:
+  op1-cust-onboarding-api:
     build:
-      context: ./dBanking.CustomerOnboarding.API
+      context: ../apps/customer-onboarding
       dockerfile: Dockerfile
-    container_name: ${COMPOSE_PROJECT_NAME}_api
+    container_name: op1-cust-onboarding-api
     depends_on:
-      postgres:
+      op1-postgres:
         condition: service_healthy
-      rabbitmq:
+      op1-rabbitmq:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
 
-      # Postgres envs consumed by Program.cs
-      DB_HOST: postgres
-      DB_PORT: "5432"
+      # Postgres
+      DB_HOST: op1-postgres
+      DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       PG_INCLUDE_ERROR_DETAIL: ${PG_INCLUDE_ERROR_DETAIL}
 
-      # RabbitMQ envs consumed by Program.cs
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: "5672"
+      # RabbitMQ
+      RABBITMQ_HOST: op1-rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_VHOST: /
       RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
       RABBITMQ_USE_TLS: "false"
+
+      # Kestrel port in container is 8080 (from Dockerfile)
+      # We'll map host -> container below
     ports:
-      - "${API_HTTP_PORT}:9090"      # host:container
+      - "${API_HTTP_PORT}:8080"
+      # If you want HTTPS, expose 8443 in Dockerfile and configure certs
     networks:
-      - op_net
+      - op1-net
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s
