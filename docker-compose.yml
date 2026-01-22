@@ -8,6 +8,7 @@ volumes:
   op1-postgres-data:
   op1-rabbitmq-data:
   op1-rabbitmq-log:
+  data-protection-keys:
 
 services:
   op1-postgres:
@@ -23,6 +24,7 @@ services:
       - "${POSTGRES_PORT}:5432"
     volumes:
       - op1-postgres-data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost"]
       interval: 5s
@@ -64,6 +66,7 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_URLS: http://0.0.0.0:9090   # <-- force HTTP only
 
       # Postgres
       DB_HOST: op1-postgres
@@ -80,6 +83,8 @@ services:
       RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
       RABBITMQ_USE_TLS: "false"
+    volumes:
+      - data-protection-keys:/keys
 
     ports:
       - "${API_HTTP_PORT}:9090"

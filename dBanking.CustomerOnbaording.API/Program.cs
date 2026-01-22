@@ -14,6 +14,7 @@ using FluentValidation.AspNetCore; // Add this using directive
 using MassTransit;
 using MassTransit.RabbitMqTransport.Topology;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,7 @@ using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
+using System.Net;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +38,14 @@ builder.Services.AddScoped<ICorrelationAccessor, HttpCorrelationAccessor>();
 
 builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+
+
+
+builder.WebHost.ConfigureKestrel((ctx, kestrel) =>
+{
+    // Prevent Kestrel from loading HTTPS endpoints from config
+    kestrel.Listen(IPAddress.Any, 9090); // HTTP only
+});
 
 
 
@@ -279,6 +289,12 @@ builder.Services.AddAutoMapper(cfg =>
 
 
 builder.Services.AddFluentValidationAutoValidation();
+
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo("/keys"))
+    .SetApplicationName("op1-cust-onboarding-api");
+
 
 // SQL Server registration (kept as commented reference)
 // builder.Services.AddDbContext<AppDBContext>(options =>
