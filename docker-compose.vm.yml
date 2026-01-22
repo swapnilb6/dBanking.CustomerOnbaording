@@ -1,3 +1,4 @@
+
 version: "3.9"
 
 networks:
@@ -5,34 +6,11 @@ networks:
     driver: bridge
 
 volumes:
-  op1-postgres-data:
   op1-rabbitmq-data:
   op1-rabbitmq-log:
   data-protection-keys:
 
 services:
-  op1-postgres:
-    image: postgres:16
-    container_name: op1-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "${POSTGRES_PORT}:5432"
-    volumes:
-      - op1-postgres-data:/var/lib/postgresql/data
-      - ./db-init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    networks:
-      - op1-net
-
   op1-rabbitmq:
     image: rabbitmq:3.13-management
     container_name: op1-rabbitmq
@@ -48,7 +26,7 @@ services:
       - op1-rabbitmq-log:/var/log/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 5s 
+      interval: 5s
       timeout: 5s
       retries: 10
     networks:
@@ -60,36 +38,35 @@ services:
       dockerfile: dBanking.CustomerOnbaording.API/Dockerfile
     container_name: op1-cust-onboarding-api
     depends_on:
-      op1-postgres:
-        condition: service_healthy
       op1-rabbitmq:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-      ASPNETCORE_URLS: http://0.0.0.0:9090   # <-- force HTTP only
+      ASPNETCORE_URLS: http://0.0.0.0:9090
 
       Swagger__RedirectUri: http://172.31.20.79:5000/swagger/oauth2-redirect.html
 
-      # Postgres
-      DB_HOST: op1-postgres
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # --- Use HOST Postgres (Ubuntu VM) ---
+      DB_HOST: host.docker.internal
+      DB_PORT: ${POSTGRES_PORT}          # e.g., 5433
+      DB_NAME: ${POSTGRES_DB}            # dBanking_CMS
+      DB_USER: ${POSTGRES_USER}          # postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD}  # postgres
       PG_INCLUDE_ERROR_DETAIL: ${PG_INCLUDE_ERROR_DETAIL}
 
-      # RabbitMQ
+      # RabbitMQ (container)
       RABBITMQ_HOST: op1-rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_VHOST: /
       RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
       RABBITMQ_USE_TLS: "false"
-    volumes:
-      - data-protection-keys:/keys
-
     ports:
       - "${API_HTTP_PORT}:9090"
+    volumes:
+      - data-protection-keys:/keys
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # maps to the Linux host from container
     networks:
       - op1-net
     healthcheck:

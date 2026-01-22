@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-using Consumers;
-using dBanking.Core.Mappers;
+﻿using dBanking.Core.Mappers;
 using dBanking.Core.MappingProfiles;
 using dBanking.Core.Repository_Contracts;
 using dBanking.Core.ServiceContracts;
@@ -12,18 +10,13 @@ using dBanking.Infrastructure.DbContext;
 using dBanking.Infrastructure.Repositories;
 using FluentValidation.AspNetCore; // Add this using directive
 using MassTransit;
-using MassTransit.RabbitMqTransport.Topology;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
-using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
 using System.Net;
-
 
 var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
@@ -39,21 +32,16 @@ builder.Services.AddScoped<ICorrelationAccessor, HttpCorrelationAccessor>();
 builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 
-
-
 builder.WebHost.ConfigureKestrel((ctx, kestrel) =>
 {
     // Prevent Kestrel from loading HTTPS endpoints from config
     kestrel.Listen(IPAddress.Any, 9090); // HTTP only
 });
 
-
-
 // AuthN: JWT Bearer from Entra ID for a protected web API
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
-
 
 // AuthZ: policies based on delegated scopes
 builder.Services.AddAuthorization(options =>
@@ -120,17 +108,13 @@ builder.Services.AddSwaggerGen(c =>
 // The following flag can be used to get more descriptive errors in development environments
 IdentityModelEventSource.ShowPII = false;
 
-
 // RabbitMQ + MassTransit
 var mqHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
 var mqPort = int.Parse(Environment.GetEnvironmentVariable("RABBITMQ_PORT") ?? "5672");
 var mqVh = Environment.GetEnvironmentVariable("RABBITMQ_VHOST") ?? "/";
-var mqUser = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "guest";
-var mqPass = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "guest";
+var mqUser = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "admin";
+var mqPass = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "admin123";
 var mqTls = bool.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_USE_TLS"), out var useTls) && useTls;
-
-
-
 
 // MassTransit + RabbitMQ
 builder.Services.AddMassTransit(x =>
@@ -208,7 +192,6 @@ builder.Services.AddMassTransit(x =>
         //    e.UseInMemoryOutbox(); // ensures atomicity
         //});
 
-
         // Example of a manual binding to a topic exchange with a fan-in queue
         cfg.ReceiveEndpoint("customer-events-queue", e =>
         {
@@ -230,7 +213,6 @@ builder.Services.AddMassTransit(x =>
                 return Task.CompletedTask;
             });
         });
-
 
         // REMOVE this 'customer-events-queue' until you attach consumers to it.
         // Otherwise it's a dead queue accumulating messages.
@@ -265,13 +247,11 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
-
 builder.Services.AddOptions<MassTransitHostOptions>().Configure(options =>
 {
     options.WaitUntilStarted = true;
     options.StartTimeout = TimeSpan.FromSeconds(30);
 });
-
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -286,10 +266,7 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.AddProfile<KycMappingProfile>();
 });
 
-
-
 builder.Services.AddFluentValidationAutoValidation();
-
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo("/keys"))
@@ -300,14 +277,12 @@ builder.Services.AddDataProtection()
 // builder.Services.AddDbContext<AppDBContext>(options =>
 //     options.UseSqlServer(builder.Configuration.GetConnectionString("SqlServerDB")));
 
-
-
 // Postgres
 var pgHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
 var pgPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
 var pgDb = Environment.GetEnvironmentVariable("DB_NAME") ?? "dBanking_CMS";
-var pgUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres1";
-var pgPass = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "postgres123";
+var pgUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
+var pgPass = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "postgres";
 var pgDetail = Environment.GetEnvironmentVariable("PG_INCLUDE_ERROR_DETAIL") == "true" ? "true" : "false";
 
 var connString = $"Host={pgHost};Port={pgPort};Database={pgDb};Username={pgUser};Password={pgPass};Include Error Detail={pgDetail}";
