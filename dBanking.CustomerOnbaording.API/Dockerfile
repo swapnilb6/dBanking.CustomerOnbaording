@@ -7,8 +7,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 USER ${APP_UID}
 WORKDIR /app
-EXPOSE 8080
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+EXPOSE 9090
+ENV ASPNETCORE_URLS=http://0.0.0.0:9090
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
