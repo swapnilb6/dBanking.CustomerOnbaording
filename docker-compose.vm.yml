@@ -44,7 +44,7 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: http://0.0.0.0:9090
 
-      Swagger__RedirectUri: http://172.31.20.79:5000/swagger/oauth2-redirect.html
+      Swagger__RedirectUri: http://localhost:5000/swagger/oauth2-redirect.html
 
       # --- Use HOST Postgres (Ubuntu VM) ---
       DB_HOST: host.docker.internal

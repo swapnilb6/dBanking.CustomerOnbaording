@@ -66,7 +66,7 @@ namespace dBanking.CustomerOnbaording.API.Controllers
         /// Requires scope: customer:read
         /// </summary>
         [HttpGet("{customerId:guid}")]
-        [Authorize(Policy = "App.read")]
+        //[Authorize(Policy = "App.read")]
         //[Authorize]
         public async Task<ActionResult<CustomerResponseDto>> GetCustomerById(Guid customerId, CancellationToken ct)
         {
@@ -82,7 +82,7 @@ namespace dBanking.CustomerOnbaording.API.Controllers
         /// Requires scope: customer:read
         /// </summary>
         [HttpGet("search")]
-        [Authorize(Policy = "App.read")]
+        //[Authorize(Policy = "App.read")]
         //[Authorize]
         public async Task<ActionResult<CustomerResponseDto>> Search(
             [FromQuery] string? email,
