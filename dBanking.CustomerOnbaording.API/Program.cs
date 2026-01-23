@@ -13,19 +13,22 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.OpenApi.Models;
+using Npgsql;
 using System.Net;
+
 
 var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
-// Add services to the container.
+
+// Add services
 builder.Services.AddInfrastructureServices();
 dBanking.Core.dependancyInjection.AddCoreServices(builder.Services);
 builder.Services.AddScoped<IKycCaseService, KycCaseService>();
 
-//Auditing services registration
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICorrelationAccessor, HttpCorrelationAccessor>();
 
@@ -34,25 +37,22 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 
 builder.WebHost.ConfigureKestrel((ctx, kestrel) =>
 {
-    // Prevent Kestrel from loading HTTPS endpoints from config
-    kestrel.Listen(IPAddress.Any, 9090); // HTTP only
+    // Bind HTTP only on 9090
+    kestrel.Listen(IPAddress.Any, 9090);
 });
 
-// AuthN: JWT Bearer from Entra ID for a protected web API
+// AuthN / AuthZ
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
-// AuthZ: policies based on delegated scopes
 builder.Services.AddAuthorization(options =>
 {
-    // The 'scp' claim contains short scope names like "App.read", "App.write"
     options.AddPolicy("App.Read", policy => policy.RequireScope("App.read"));
     options.AddPolicy("App.Write", policy => policy.RequireScope("App.write"));
 });
 
-
-// Swagger/OpenAPI + OAuth2 (Authorization Code + PKCE)
+// Swagger + OAuth2
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -63,13 +63,8 @@ builder.Services.AddSwaggerGen(c =>
     var authUrl = $"{instance}{tenantId}/oauth2/v2.0/authorize";
     var tokenUrl = $"{instance}{tenantId}/oauth2/v2.0/token";
 
-
     var apiClientId = builder.Configuration["AzureAd:ClientId"];
-    var scopes = new Dictionary<string, string>
-    {
-        [$"api://{apiClientId}/App.read"] = "Read access to dBanking.CMS",
-        [$"api://{apiClientId}/App.write"] = "Write access to dBanking.CMS"
-    };
+
     c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.OAuth2,
@@ -81,8 +76,8 @@ builder.Services.AddSwaggerGen(c =>
                 TokenUrl = new Uri(tokenUrl),
                 Scopes = new Dictionary<string, string>
                 {
-                    [$"api://{builder.Configuration["AzureAd:ClientId"]}/App.read"] = "Read access",
-                    [$"api://{builder.Configuration["AzureAd:ClientId"]}/App.write"] = "Write access"
+                    [$"api://{apiClientId}/App.read"] = "Read access",
+                    [$"api://{apiClientId}/App.write"] = "Write access"
                 }
             }
         },
@@ -90,160 +85,82 @@ builder.Services.AddSwaggerGen(c =>
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
-{
     {
-        new OpenApiSecurityScheme
         {
-            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "oauth2" }
-        },
-        new List<string>
-        {
-            $"api://{builder.Configuration["AzureAd:ClientId"]}/App.read",
-            $"api://{builder.Configuration["AzureAd:ClientId"]}/App.write"
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "oauth2" }
+            },
+            new List<string>
+            {
+                $"api://{apiClientId}/App.read",
+                $"api://{apiClientId}/App.write"
+            }
         }
-    }
-});
+    });
 });
 
-// The following flag can be used to get more descriptive errors in development environments
 IdentityModelEventSource.ShowPII = false;
 
-// RabbitMQ + MassTransit
-var mqHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
-var mqPort = int.Parse(Environment.GetEnvironmentVariable("RABBITMQ_PORT") ?? "5672");
-var mqVh = Environment.GetEnvironmentVariable("RABBITMQ_VHOST") ?? "/";
-var mqUser = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "admin";
-var mqPass = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "admin123";
-var mqTls = bool.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_USE_TLS"), out var useTls) && useTls;
+// ---------- RabbitMQ + MassTransit ----------
+var mqHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? configuration["Messaging:RabbitMq:Host"] ?? "op1-rabbitmq";
+var mqPort = int.Parse(Environment.GetEnvironmentVariable("RABBITMQ_PORT") ?? configuration["Messaging:RabbitMq:Port"] ?? "5672");
+var mqVh = Environment.GetEnvironmentVariable("RABBITMQ_VHOST") ?? configuration["Messaging:RabbitMq:VirtualHost"] ?? "/";
+var mqUser = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? configuration["Messaging:RabbitMq:Username"] ?? "guest";
+var mqPass = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? configuration["Messaging:RabbitMq:Password"] ?? "guest";
+var mqTls = bool.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_USE_TLS"), out var useTlsEnv)
+             ? useTlsEnv
+             : bool.TryParse(configuration["Messaging:RabbitMq:UseTls"], out var useTlsCfg) && useTlsCfg;
 
-// MassTransit + RabbitMQ
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<KycStatusChangedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        var mq = builder.Configuration.GetSection("Messaging:RabbitMq");
-
         cfg.Host(mqHost, mqVh, h =>
+    {
+        h.Username(mqUser);
+        h.Password(mqPass);
+
+        if (mqTls)
         {
-            h.Username(mqUser);
-            h.Password(mqPass);
+            h.UseSsl(s => { s.Protocol = System.Security.Authentication.SslProtocols.Tls12; });
+        }
+    });
 
-            if (bool.TryParse(mq["UseTls"], out var useTls) && useTls)
-            {
-                h.UseSsl(s => { s.Protocol = System.Security.Authentication.SslProtocols.Tls12; });
-            }
-        });
+        cfg.UseInMemoryOutbox();
 
-        cfg.UseInMemoryOutbox(); // ensures publish is deferred until handler completes
-        
-        // Set the exchange names (entity names)
-        cfg.Message<dBanking.Core.Messages.CustomerCreated>(mt =>
-        {
-            mt.SetEntityName("event.customer.created");   // topic exchange
-        });
+        cfg.Message<dBanking.Core.Messages.CustomerCreated>(mt => mt.SetEntityName("event.customer.created"));
+        cfg.Message<dBanking.Core.Messages.KycStatusChanged>(mt => mt.SetEntityName("event.kyc.status"));
 
-        cfg.Message<dBanking.Core.Messages.KycStatusChanged>(mt =>
-        {
-            mt.SetEntityName("event.kyc.status");         // topic exchange
-        });
+        cfg.Publish<dBanking.Core.Messages.CustomerCreated>(p => { p.ExchangeType = "topic"; p.Durable = true; });
+        cfg.Publish<dBanking.Core.Messages.KycStatusChanged>(p => { p.ExchangeType = "topic"; p.Durable = true; });
 
-        // Publish topology
-        cfg.Publish<dBanking.Core.Messages.CustomerCreated>(p =>
-        {
-            p.ExchangeType = "topic";
-            p.Durable = true;
-        });
-
-        cfg.Publish<dBanking.Core.Messages.KycStatusChanged>(p =>
-        {
-            p.ExchangeType = "topic";
-            p.Durable = true;
-        });
-
-        // Explicit consumer endpoint (distinct queue name)
         cfg.ReceiveEndpoint("kyc-status-changed-processor", e =>
-        {
-            // Let MassTransit bind the consumer to the message exchange using consume topology
-            // (default is true; no need to set e.ConfigureConsumeTopology)
-            e.PrefetchCount = 16;
+    {
+        e.PrefetchCount = 16;
+        e.ConfigureConsumer<KycStatusChangedConsumer>(context);
+        e.UseMessageRetry(r => r.Exponential(5, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)));
+    });
 
-            e.ConfigureConsumer<KycStatusChangedConsumer>(context);
-
-            e.UseMessageRetry(r => r.Exponential(
-                retryLimit: 5,
-                minInterval: TimeSpan.FromSeconds(1),
-                maxInterval: TimeSpan.FromSeconds(30),
-                intervalDelta: TimeSpan.FromSeconds(5)));
-
-            // Optional throughput cap:
-            // e.UseConcurrencyLimit(8);
-        });
-
-        //cfg.ReceiveEndpoint("customer-created-processor", e =>
-        //{
-        //    e.ConfigureConsumer<CustomerCreatedConsumer>(context);
-
-        //    // Best practice defaults:
-        //    e.PrefetchCount = 10;
-
-        //    e.UseMessageRetry(r => r.Interval(5, TimeSpan.FromSeconds(3))); // retry
-        //    e.UseInMemoryOutbox(); // ensures atomicity
-        //});
-
-        // Example of a manual binding to a topic exchange with a fan-in queue
+        // Fan-in queue for diagnostics (okay for dev)
         cfg.ReceiveEndpoint("customer-events-queue", e =>
-        {
-            e.ConfigureConsumeTopology = false; // we will bind manually
+    {
+        e.ConfigureConsumeTopology = false;
+        e.Bind("event.customer.created", x =>
+    {
+        x.ExchangeType = "topic";
+        x.RoutingKey = "#";
+        x.Durable = true;
+    });
 
-            e.Bind("event.customer.created", x =>
-            {
-                x.ExchangeType = "topic";
-                x.RoutingKey = "#";        // accept all routing keys
-                x.Durable = true;
-            });
-
-            // If you don’t attach a consumer, messages will pile up in the queue.
-            // You can attach a handler to prove it’s working:
-            e.Handler<dBanking.Core.Messages.CustomerCreated>(ctx =>
-            {
-                // For diagnostics; remove later
-                Console.WriteLine($"[CustomerCreated] {ctx.Message.CustomerId}");
-                return Task.CompletedTask;
-            });
-        });
-
-        // REMOVE this 'customer-events-queue' until you attach consumers to it.
-        // Otherwise it's a dead queue accumulating messages.
-        // If/when you need a fan-in queue for multiple topics with manual routing keys:
-        //
-        // cfg.ReceiveEndpoint("customer-events-queue", e =>
-        // {
-        //     e.PrefetchCount = 16;
-        //     e.ConfigureConsumeTopology = false; // manual binding
-        //
-        //     e.Bind("event.customer.created", x =>
-        //     {
-        //         x.ExchangeType = "topic";
-        //         x.RoutingKey = "customer.created.#";
-        //         x.Durable = true;
-        //     });
-        //
-        //     e.Bind("event.kyc.status", x =>
-        //     {
-        //         x.ExchangeType = "topic";
-        //         x.RoutingKey = "kyc.status.#";
-        //         x.Durable = true;
-        //     });
-        //
-        //     // Then wire consumers:
-        //     // e.ConfigureConsumer<CustomerCreatedConsumer>(context);
-        //     // e.ConfigureConsumer<KycStatusChangedConsumer>(context);
-        // });
-
-        // IMPORTANT: Do NOT call ConfigureEndpoints when using explicit endpoint declarations
-        // cfg.ConfigureEndpoints(context);
+        e.Handler<dBanking.Core.Messages.CustomerCreated>(ctx =>
+    {
+        Console.WriteLine($"[CustomerCreated] {ctx.Message.CustomerId}");
+        return Task.CompletedTask;
+    });
+    });
     });
 });
 
@@ -253,32 +170,27 @@ builder.Services.AddOptions<MassTransitHostOptions>().Configure(options =>
     options.StartTimeout = TimeSpan.FromSeconds(30);
 });
 
+// Logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
-// Add controllers
+// Controllers & AutoMapper & FluentValidation
 builder.Services.AddControllers();
-
 builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddProfile<CustomerMappingProfile>();
     cfg.AddProfile<KycMappingProfile>();
 });
-
 builder.Services.AddFluentValidationAutoValidation();
 
+// DataProtection (dev note: runs as root in container to avoid volume perm issues)
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo("/keys"))
     .SetApplicationName("op1-cust-onboarding-api");
 
-
-// SQL Server registration (kept as commented reference)
-// builder.Services.AddDbContext<AppDBContext>(options =>
-//     options.UseSqlServer(builder.Configuration.GetConnectionString("SqlServerDB")));
-
-// Postgres
-var pgHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+// ---------- Postgres ----------
+var pgHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "op1-postgres";
 var pgPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
 var pgDb = Environment.GetEnvironmentVariable("DB_NAME") ?? "dBanking_CMS";
 var pgUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
@@ -287,39 +199,112 @@ var pgDetail = Environment.GetEnvironmentVariable("PG_INCLUDE_ERROR_DETAIL") == 
 
 var connString = $"Host={pgHost};Port={pgPort};Database={pgDb};Username={pgUser};Password={pgPass};Include Error Detail={pgDetail}";
 
-// PostgreSQL registration using AppPostgresDbContext
-// Make sure you have a connection string named "PostgresDB" in configuration
 builder.Services.AddDbContext<AppPostgresDbContext>(options =>
     options.UseNpgsql(connString));
+
+
+builder.Services.AddHealthChecks()
+    .AddCheck("postgres", () =>
+    {
+        try
+        {
+            using var conn = new NpgsqlConnection(connString);
+            conn.Open();
+            using var cmd = new NpgsqlCommand("SELECT 1;", conn);
+            var _ = cmd.ExecuteScalar();
+            return HealthCheckResult.Healthy("Postgres is reachable.");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("Postgres health check failed.", ex);
+        }
+    });
+
+// .AddRabbitMQ($"amqp://{mqUser}:{mqPass}@{mqHost}:{mqPort}{mqVh}", name: "rabbitmq");
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-
-    // Swagger UI + OAuth2 client settings
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "dBanking.CMS API v1");
-        c.OAuthClientId(builder.Configuration["Swagger:ClientId"]);        // Swagger app's client ID
+        c.OAuthClientId(builder.Configuration["Swagger:ClientId"]);
         c.OAuthScopes(builder.Configuration.GetSection("Swagger:Scopes").Get<string[]>() ?? Array.Empty<string>());
-        c.OAuthUsePkce();                                                  // <-- REQUIRED
-        c.OAuth2RedirectUrl(builder.Configuration["Swagger:RedirectUri"]); // e.g. https://localhost:5001/swagger/oauth2-redirect.html
+        c.OAuthUsePkce();
+        c.OAuth2RedirectUrl(builder.Configuration["Swagger:RedirectUri"]);
     });
 }
 
+// ---- Dev-only EF Core auto-migrations (APPLY_MIGRATIONS=true) ----
+var applyMigrationsEnv = Environment.GetEnvironmentVariable("APPLY_MIGRATIONS");
+var applyMigrations = string.Equals(applyMigrationsEnv, "true", StringComparison.OrdinalIgnoreCase);
+
+if (applyMigrations && app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+                                      .CreateLogger("EFMigrations");
+    var db = scope.ServiceProvider.GetRequiredService<dBanking.Infrastructure.DbContext.AppPostgresDbContext>();
+
+    // Basic retry (no Polly dependency) - 10 attempts, 3s apart
+    const int maxAttempts = 10;
+    var attempt = 0;
+
+    while (true)
+    {
+        try
+        {
+            attempt++;
+            logger.LogInformation("EF Migration: attempt {Attempt}/{MaxAttempts} - checking pending migrations...", attempt, maxAttempts);
+
+            // Ensure DB exists (CreateDatabaseIfNotExists pattern)
+            // For Npgsql, EnsureCreated is not recommended with Migrations; use Migrate directly.
+            // We'll just open a connection to fail fast if DB is unavailable.
+            await db.Database.OpenConnectionAsync();
+            await db.Database.CloseConnectionAsync();
+
+            var pending = await db.Database.GetPendingMigrationsAsync();
+            if (pending.Any())
+            {
+                logger.LogInformation("EF Migration: {Count} pending migration(s) found: {Migrations}", pending.Count(), string.Join(", ", pending));
+                await db.Database.MigrateAsync();
+                logger.LogInformation("EF Migration: completed successfully.");
+            }
+            else
+            {
+                logger.LogInformation("EF Migration: no pending migrations.");
+            }
+            break; // success
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "EF Migration: attempt {Attempt} failed.", attempt);
+            if (attempt >= maxAttempts)
+            {
+                // For dev, we’ll log and continue to let the app run.
+                // You can change this to rethrow if you want hard failure.
+                logger.LogError(ex, "EF Migration: all attempts exhausted. Continuing without applying migrations.");
+                break;
+            }
+            await Task.Delay(TimeSpan.FromSeconds(3));
+        }
+    }
+}
 
 app.UseExceptionHandellingMW();
 app.UseMiddleware<CorrelationIdMiddleware>();
-
 
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.Run();
 
+// Map /health so compose healthcheck passes
+app.MapHealthChecks("/health");
+
+app.Run();
 
 public partial class Program { }

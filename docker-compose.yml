@@ -1,3 +1,4 @@
+
 version: "3.9"
 
 networks:
@@ -26,10 +27,11 @@ services:
       - op1-postgres-data:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost"]
+      # Use container-local address; keep it fast but robust
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 15
     networks:
       - op1-net
 
@@ -48,9 +50,9 @@ services:
       - op1-rabbitmq-log:/var/log/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 5s 
+      interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 15
     networks:
       - op1-net
 
@@ -66,9 +68,10 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-      ASPNETCORE_URLS: http://0.0.0.0:9090   # <-- force HTTP only
+      ASPNETCORE_URLS: http://0.0.0.0:9090
 
-      Swagger__RedirectUri: http://172.31.20.79:5000/swagger/oauth2-redirect.html
+      # Swagger redirect unified to localhost using your host-exposed API port
+      Swagger__RedirectUri: http://localhost:${API_HTTP_PORT}/swagger/oauth2-redirect.html
 
       # Postgres
       DB_HOST: op1-postgres
@@ -78,20 +81,24 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       PG_INCLUDE_ERROR_DETAIL: ${PG_INCLUDE_ERROR_DETAIL}
 
-      # RabbitMQ
+      # Dev-only: apply EF migrations automatically on startup
+      APPLY_MIGRATIONS: "true"
+
+
+      # RabbitMQ (envs used by Program.cs)
       RABBITMQ_HOST: op1-rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_VHOST: /
       RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
       RABBITMQ_USE_TLS: "false"
+
     volumes:
       - data-protection-keys:/keys
 
     ports:
       - "${API_HTTP_PORT}:9090"
-    networks:
-      - op1-net
+
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:9090/health || exit 1"]
       interval: 10s
